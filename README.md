@@ -27,7 +27,7 @@
 日常开发中，一个开发者经常同时维护多个需求分支——开发完成、等待联调、已提测、待验收、准备上线……状态多且分散在 Jira、文档、聊天记录里。DeliveryBar 把这些信息收拢到菜单栏，让你一眼看清每条需求现在处于什么阶段、有没有被遗忘。
 
 <div align="center">
-  <img src="screenshots/main-panel.png" alt="主面板截图" width="420" />
+  <img src="example.png" alt="主面板截图" width="420" />
   <p><em>（截图示例——请替换为实际截图）</em></p>
 </div>
 
