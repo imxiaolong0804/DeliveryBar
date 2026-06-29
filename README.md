@@ -28,7 +28,6 @@
 
 <div align="center">
   <img src="example.png" alt="主面板截图" width="420" />
-  <p><em>（截图示例——请替换为实际截图）</em></p>
 </div>
 
 ## ✨ 功能
