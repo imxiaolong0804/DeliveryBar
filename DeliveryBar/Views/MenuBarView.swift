@@ -130,6 +130,7 @@ struct MenuBarView: View {
         }
         .frame(width: Layout.panelWidth, height: tabPanelHeight)
         .background(DeliveryBarTheme.panelBackground)
+        .tint(DeliveryBarTheme.accent)
     }
 
     private var tabSelector: some View {
@@ -138,13 +139,19 @@ struct MenuBarView: View {
                 Button {
                     currentTab = tab
                 } label: {
+                    let isSelected = currentTab == tab
                     Label(tab.title, systemImage: tab.systemImage)
                         .font(.caption)
+                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
+                        .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
+                        }
                 }
-                .buttonStyle(.bordered)
-                .tint(currentTab == tab ? DeliveryBarTheme.accent : .secondary)
+                .buttonStyle(.plain)
             }
         }
         .labelStyle(.titleAndIcon)
@@ -172,17 +179,22 @@ struct MenuBarView: View {
         HStack(spacing: 8) {
             Image(systemName: "checklist")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeliveryBarTheme.ink)
                 .frame(width: 32, height: 32)
-                .background(DeliveryBarTheme.accent.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(DeliveryBarTheme.accentWash, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(DeliveryBarTheme.ink.opacity(0.14))
+                }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline)
+                    .foregroundStyle(DeliveryBarTheme.ink)
 
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DeliveryBarTheme.softText)
             }
 
             Spacer()
@@ -194,7 +206,7 @@ struct MenuBarView: View {
                     .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(.red.gradient, in: Capsule())
+                    .background(DeliveryBarTheme.danger, in: Capsule())
             }
         }
         .padding(12)
@@ -260,19 +272,25 @@ struct MenuBarView: View {
                 Button {
                     selectedRequirementStatus = status
                 } label: {
+                    let isSelected = selectedRequirementStatus == status
                     HStack(spacing: 4) {
                         Text(status.compactTitle)
                             .lineLimit(1)
 
                         Text("\(requirements(for: status).count)")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
                     }
                     .font(.caption)
+                    .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 5)
+                    .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
+                    }
                 }
-                .buttonStyle(.bordered)
-                .tint(selectedRequirementStatus == status ? status.tintColor : .secondary)
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
@@ -315,7 +333,7 @@ struct MenuBarView: View {
     private var emptyState: some View {
         Text(activeRequirements.isEmpty ? "等待您新建一个需求" : "\(selectedRequirementStatus.compactTitle)暂无需求")
             .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(DeliveryBarTheme.softText)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 22)
         .frame(maxWidth: .infinity)
@@ -340,7 +358,7 @@ struct MenuBarView: View {
         .labelStyle(.titleAndIcon)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.white.opacity(0.36))
+        .background(DeliveryBarTheme.footerBackground)
     }
 
     private func requirements(for status: RequirementStatus) -> [Requirement] {
@@ -490,7 +508,7 @@ struct RequirementSectionView: View {
 
                 Text("\(requirements.count)")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DeliveryBarTheme.softText)
                 Spacer()
             }
             .padding(.horizontal, 2)

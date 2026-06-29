@@ -87,7 +87,7 @@ struct TemporaryTasksView: View {
 
                     Text(summaryText)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DeliveryBarTheme.softText)
                 }
 
                 Spacer()
@@ -98,6 +98,7 @@ struct TemporaryTasksView: View {
                     Button {
                         selectedDate = date
                     } label: {
+                        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
                         VStack(spacing: 2) {
                             Text(dayTitle(for: date))
                                 .font(.caption)
@@ -105,13 +106,18 @@ struct TemporaryTasksView: View {
 
                             Text(monthDayText(for: date))
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
                         }
+                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
+                        .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
+                        }
                     }
-                    .buttonStyle(.bordered)
-                    .tint(calendar.isDate(date, inSameDayAs: selectedDate) ? DeliveryBarTheme.accent : .secondary)
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -145,7 +151,7 @@ struct TemporaryTasksView: View {
             if let validationMessage {
                 Text(validationMessage)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DeliveryBarTheme.danger)
             }
         }
         .padding(10)
@@ -261,7 +267,7 @@ private struct TemporaryTaskRow: View {
         HStack(alignment: .top, spacing: 8) {
             Button(action: onToggle) {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(task.isCompleted ? DeliveryBarTheme.accent : .secondary)
+                    .foregroundStyle(task.isCompleted ? DeliveryBarTheme.accent : DeliveryBarTheme.muted)
             }
             .buttonStyle(.borderless)
 
@@ -270,23 +276,27 @@ private struct TemporaryTaskRow: View {
                     Text(task.typeTitle)
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(DeliveryBarTheme.accent)
+                        .foregroundStyle(DeliveryBarTheme.ink)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(DeliveryBarTheme.accent.opacity(0.12), in: Capsule())
+                        .background(DeliveryBarTheme.accentWash.opacity(0.42), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .stroke(DeliveryBarTheme.accent.opacity(0.24))
+                        }
 
                     Text(task.title)
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .strikethrough(task.isCompleted)
-                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                        .foregroundStyle(task.isCompleted ? DeliveryBarTheme.softText : DeliveryBarTheme.ink)
                         .lineLimit(1)
                 }
 
                 if !task.note.isEmpty {
                     Text(task.note)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DeliveryBarTheme.softText)
                         .lineLimit(2)
                 }
             }
@@ -342,7 +352,7 @@ private struct TemporaryTypeField: View {
         if suggestions.isEmpty {
             Text("暂无类型")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 5)], alignment: .leading, spacing: 5) {
                 ForEach(suggestions, id: \.self) { suggestion in
@@ -355,6 +365,7 @@ private struct TemporaryTypeField: View {
                     .font(.caption2)
                     .lineLimit(1)
                     .buttonStyle(.bordered)
+                    .tint(DeliveryBarTheme.accent)
                     .controlSize(.small)
                 }
             }

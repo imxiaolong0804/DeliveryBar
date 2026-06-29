@@ -7,7 +7,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 23,
-          "startingLine": 191
+          "startingLine": 203
         }
       },
       {
@@ -15,7 +15,7 @@
         "key": "等待您新建一个需求",
         "location": {
           "startingColumn": 43,
-          "startingLine": 316
+          "startingLine": 334
         }
       },
       {
@@ -23,7 +23,7 @@
         "key": "%@暂无需求",
         "location": {
           "startingColumn": 75,
-          "startingLine": 316
+          "startingLine": 334
         }
       },
       {
@@ -31,7 +31,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 30,
-          "startingLine": 267
+          "startingLine": 280
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "完成后的需求会出现在这里。",
         "location": {
           "startingColumn": 43,
-          "startingLine": 289
+          "startingLine": 307
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "暂无归档需求",
         "location": {
           "startingColumn": 25,
-          "startingLine": 287
+          "startingLine": 305
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "退出",
         "location": {
           "startingColumn": 20,
-          "startingLine": 336
+          "startingLine": 354
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "新增需求",
         "location": {
           "startingColumn": 27,
-          "startingLine": 330
+          "startingLine": 348
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 22,
-          "startingLine": 491
+          "startingLine": 509
         }
       }
     ]

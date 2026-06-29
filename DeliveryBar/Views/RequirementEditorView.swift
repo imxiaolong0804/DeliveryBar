@@ -114,7 +114,7 @@ struct RequirementEditorView: View {
                     if let validationMessage {
                         Text(validationMessage)
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(DeliveryBarTheme.danger)
                             .padding(.horizontal, 4)
                     }
 
@@ -124,7 +124,7 @@ struct RequirementEditorView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("确认删除这个需求？")
                                         .font(.subheadline)
-                                        .foregroundStyle(.red)
+                                        .foregroundStyle(DeliveryBarTheme.danger)
 
                                     HStack {
                                         Button("删除", role: .destructive) {
@@ -154,6 +154,7 @@ struct RequirementEditorView: View {
         }
         .frame(width: 460, height: 480)
         .background(DeliveryBarTheme.panelBackground)
+        .tint(DeliveryBarTheme.accent)
     }
 
     private var header: some View {
@@ -168,6 +169,7 @@ struct RequirementEditorView: View {
 
             Text(requirement == nil ? "新增需求" : "编辑需求")
                 .font(.headline)
+                .foregroundStyle(DeliveryBarTheme.ink)
 
             Spacer()
         }
@@ -295,7 +297,7 @@ private struct EditorSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
             VStack(alignment: .leading, spacing: 10) {
                 content
@@ -323,7 +325,7 @@ private struct EditorTextField: View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
             if let lineLimit {
                 TextField(placeholder, text: $text, axis: axis)
@@ -362,7 +364,7 @@ private struct PersonNameField: View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
@@ -399,7 +401,7 @@ private struct PersonNameField: View {
         if suggestions.isEmpty {
             Text("暂无常用姓名")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 6)], alignment: .leading, spacing: 6) {
                 ForEach(suggestions, id: \.self) { suggestion in
@@ -413,6 +415,7 @@ private struct PersonNameField: View {
                     .font(.caption2)
                     .lineLimit(1)
                     .buttonStyle(.bordered)
+                    .tint(DeliveryBarTheme.accent)
                     .controlSize(.small)
                 }
             }
@@ -487,7 +490,7 @@ private struct StatusSelector: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("需求状态")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(RequirementStatus.editableList) { status in
@@ -507,7 +510,7 @@ private struct StatusSelector: View {
                         .padding(.vertical, 5)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selection == status ? status.tintColor : .secondary)
+                    .tint(selection == status ? status.tintColor : DeliveryBarTheme.muted)
                 }
             }
         }
@@ -522,7 +525,7 @@ private struct PrioritySelector: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("优先级")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
             HStack(spacing: 8) {
                 ForEach([RequirementPriority.high, .medium, .low]) { priority in
@@ -536,7 +539,7 @@ private struct PrioritySelector: View {
 
                             Text(priority.helperText)
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DeliveryBarTheme.softText)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -588,11 +591,11 @@ private extension RequirementPriority {
     var tintColor: Color {
         switch self {
         case .low:
-            Color(red: 0.45, green: 0.48, blue: 0.55)
+            DeliveryBarTheme.muted
         case .medium:
             DeliveryBarTheme.accent
         case .high:
-            Color(red: 0.86, green: 0.28, blue: 0.22)
+            DeliveryBarTheme.danger
         }
     }
 }

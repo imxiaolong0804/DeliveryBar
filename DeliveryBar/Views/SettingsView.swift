@@ -28,6 +28,7 @@ struct SettingsView: View {
 
                     Text("设置")
                         .font(.headline)
+                        .foregroundStyle(DeliveryBarTheme.ink)
 
                     Spacer()
                 }
@@ -42,24 +43,24 @@ struct SettingsView: View {
 
                     LabeledContent("开发中未推进") {
                         Text("7 天")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DeliveryBarTheme.softText)
                     }
 
                     LabeledContent("待验收未处理") {
                         Text("5 天")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DeliveryBarTheme.softText)
                     }
                 }
 
                 Section("后续版本") {
                     LabeledContent("系统本地通知") {
                         Text("V1.1")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DeliveryBarTheme.softText)
                     }
 
                     LabeledContent("开机自启动") {
                         Text("V1.2+")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DeliveryBarTheme.softText)
                     }
                 }
             }
@@ -77,10 +78,13 @@ struct SettingsView: View {
                         onDone()
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(DeliveryBarTheme.accent)
                 }
                 .padding(12)
             }
         }
         .frame(width: 400, height: 360)
+        .background(DeliveryBarTheme.panelBackground)
+        .tint(DeliveryBarTheme.accent)
     }
 }

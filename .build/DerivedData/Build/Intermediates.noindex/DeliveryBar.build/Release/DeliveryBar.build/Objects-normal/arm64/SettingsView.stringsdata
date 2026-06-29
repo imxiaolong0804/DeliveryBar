@@ -15,7 +15,7 @@
         "key": "提醒",
         "location": {
           "startingColumn": 25,
-          "startingLine": 40
+          "startingLine": 41
         }
       },
       {
@@ -23,7 +23,7 @@
         "key": "后续版本",
         "location": {
           "startingColumn": 25,
-          "startingLine": 54
+          "startingLine": 55
         }
       },
       {
@@ -31,7 +31,7 @@
         "key": "菜单栏与列表内超时提示",
         "location": {
           "startingColumn": 28,
-          "startingLine": 41
+          "startingLine": 42
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "开发中未推进",
         "location": {
           "startingColumn": 36,
-          "startingLine": 43
+          "startingLine": 44
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "待验收未处理",
         "location": {
           "startingColumn": 36,
-          "startingLine": 48
+          "startingLine": 49
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "7 天",
         "location": {
           "startingColumn": 30,
-          "startingLine": 44
+          "startingLine": 45
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "5 天",
         "location": {
           "startingColumn": 30,
-          "startingLine": 49
+          "startingLine": 50
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "系统本地通知",
         "location": {
           "startingColumn": 36,
-          "startingLine": 55
+          "startingLine": 56
         }
       },
       {
@@ -79,7 +79,7 @@
         "key": "开机自启动",
         "location": {
           "startingColumn": 36,
-          "startingLine": 60
+          "startingLine": 61
         }
       },
       {
@@ -87,7 +87,7 @@
         "key": "V1.1",
         "location": {
           "startingColumn": 30,
-          "startingLine": 56
+          "startingLine": 57
         }
       },
       {
@@ -95,7 +95,7 @@
         "key": "V1.2+",
         "location": {
           "startingColumn": 30,
-          "startingLine": 61
+          "startingLine": 62
         }
       },
       {
@@ -103,7 +103,7 @@
         "key": "完成",
         "location": {
           "startingColumn": 28,
-          "startingLine": 76
+          "startingLine": 77
         }
       }
     ]

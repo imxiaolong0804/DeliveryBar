@@ -4,6 +4,14 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Resources/AppIcon.icns</key>
+		<data>
+		yNUHgBJpK7w1PGwlylxIOptQBAM=
+		</data>
+		<key>Resources/Assets.car</key>
+		<data>
+		eHZ01QfahnDPdi0pYI6z0u9VpkE=
+		</data>
 		<key>Resources/prd.md</key>
 		<data>
 		7laugCas5zEPogxJNi06F4O6X/c=
@@ -15,6 +23,20 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Resources/AppIcon.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ysJRLHfkTxm+Ne6toW17FabFn5VfH2lKXCIbqSB0GUw=
+			</data>
+		</dict>
+		<key>Resources/Assets.car</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ddgkIPDpjzh1MjFH8ytK78gz6LgdEE8GBwtn4CvoFro=
+			</data>
+		</dict>
 		<key>Resources/prd.md</key>
 		<dict>
 			<key>hash2</key>

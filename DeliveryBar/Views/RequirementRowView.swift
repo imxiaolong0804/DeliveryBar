@@ -31,7 +31,7 @@ struct RequirementRowView: View {
                     Text(requirement.title)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(DeliveryBarTheme.ink)
                         .lineLimit(1)
 
                     VStack(alignment: .leading, spacing: 1) {
@@ -47,12 +47,12 @@ struct RequirementRowView: View {
                     if !requirement.detail.isEmpty {
                         Text(requirement.detail)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DeliveryBarTheme.softText)
                             .lineLimit(2)
                     } else {
                         Text("暂无描述")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(DeliveryBarTheme.softText.opacity(0.64))
                             .lineLimit(1)
                     }
 
@@ -69,11 +69,11 @@ struct RequirementRowView: View {
                             if let attentionReason {
                                 Text(attentionReason)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(DeliveryBarTheme.danger)
                             }
                         }
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DeliveryBarTheme.softText)
                         .lineLimit(1)
                     }
                 }
@@ -138,7 +138,7 @@ struct RequirementRowView: View {
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(requirement.status.tintColor.opacity(0.18))
+                .stroke(requirement.status.tintColor.opacity(0.26))
         }
     }
 
@@ -155,7 +155,7 @@ struct RequirementRowView: View {
 
     private var rowBackground: Color {
         if attentionReason != nil {
-            return .red.opacity(0.08)
+            return DeliveryBarTheme.danger.opacity(0.08)
         }
         return DeliveryBarTheme.cardBackground
     }
@@ -168,11 +168,11 @@ private struct DeleteConfirmationStrip: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
+                .foregroundStyle(DeliveryBarTheme.danger)
 
             Text("确认删除？")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
             Spacer()
 
@@ -228,7 +228,7 @@ private struct StatusChoiceStrip: View {
                     .padding(.vertical, 3)
                 }
                 .buttonStyle(.bordered)
-                .tint(currentStatus == status ? status.tintColor : .secondary)
+                .tint(currentStatus == status ? status.tintColor : DeliveryBarTheme.muted)
             }
         }
         .padding(.leading, 12)
@@ -256,17 +256,17 @@ extension RequirementStatus {
     var tintColor: Color {
         switch self {
         case .todo:
-            Color(red: 0.45, green: 0.48, blue: 0.55)
+            DeliveryBarTheme.muted
         case .developing:
-            Color(red: 0.18, green: 0.42, blue: 0.86)
+            DeliveryBarTheme.accent
         case .developedNotDelivered:
-            Color(red: 0.92, green: 0.50, blue: 0.16)
+            Color(red: 0.78, green: 0.55, blue: 0.18)
         case .waitingAcceptance:
-            Color(red: 0.56, green: 0.34, blue: 0.86)
+            Color(red: 0.70, green: 0.50, blue: 0.18)
         case .completed:
-            Color(red: 0.12, green: 0.58, blue: 0.36)
+            DeliveryBarTheme.success
         case .archived:
-            .secondary
+            DeliveryBarTheme.muted
         }
     }
 }
@@ -286,11 +286,11 @@ private extension RequirementPriority {
     var tintColor: Color {
         switch self {
         case .low:
-            Color(red: 0.45, green: 0.48, blue: 0.55)
+            DeliveryBarTheme.muted
         case .medium:
             DeliveryBarTheme.accent
         case .high:
-            Color(red: 0.86, green: 0.28, blue: 0.22)
+            DeliveryBarTheme.danger
         }
     }
 }

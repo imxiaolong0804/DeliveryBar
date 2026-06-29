@@ -5,6 +5,49 @@
 	<key>logFormatVersion</key>
 	<integer>12</integer>
 	<key>logs</key>
-	<dict/>
+	<dict>
+		<key>947BEA5B-4059-412A-8E7C-94E8F9B53CC7</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>947BEA5B-4059-412A-8E7C-94E8F9B53CC7.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>0</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>DeliveryBar project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>DeliveryBar</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building project DeliveryBar with scheme DeliveryBar and configuration Release</string>
+			<key>timeStartedRecording</key>
+			<real>804440306.28912497</real>
+			<key>timeStoppedRecording</key>
+			<real>804440315.31883895</real>
+			<key>title</key>
+			<string>Building project DeliveryBar with scheme DeliveryBar and configuration Release</string>
+			<key>uniqueIdentifier</key>
+			<string>947BEA5B-4059-412A-8E7C-94E8F9B53CC7</string>
+		</dict>
+	</dict>
 </dict>
 </plist>
