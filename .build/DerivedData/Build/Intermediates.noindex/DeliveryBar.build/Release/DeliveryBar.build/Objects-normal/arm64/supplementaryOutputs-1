@@ -1,0 +1,12 @@
+{
+  "/Users/didi/project/Bxl/DeliveryBar/DeliveryBar/Models/PersonProfile.swift" : {
+    "abi-baseline-json" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar.abi.json",
+    "const-values" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar-primary.swiftconstvalues",
+    "dependencies" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar-primary.d",
+    "diagnostics" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar-primary.dia",
+    "objc-header" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar-Swift.h",
+    "swiftdoc" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar.swiftdoc",
+    "swiftmodule" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar.swiftmodule",
+    "swiftsourceinfo" : "/Users/didi/project/Bxl/DeliveryBar/.build/DerivedData/Build/Intermediates.noindex/DeliveryBar.build/Release/DeliveryBar.build/Objects-normal/arm64/DeliveryBar.swiftsourceinfo"
+  }
+}

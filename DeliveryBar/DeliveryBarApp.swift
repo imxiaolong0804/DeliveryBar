@@ -12,7 +12,9 @@ import SwiftData
 struct DeliveryBarApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Requirement.self,
+            TemporaryTask.self,
+            PersonProfile.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -24,9 +26,13 @@ struct DeliveryBarApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        MenuBarExtra {
+            MenuBarView()
+                .modelContainer(sharedModelContainer)
+        } label: {
+            MenuBarLabelView()
+                .modelContainer(sharedModelContainer)
         }
-        .modelContainer(sharedModelContainer)
+        .menuBarExtraStyle(.window)
     }
 }
