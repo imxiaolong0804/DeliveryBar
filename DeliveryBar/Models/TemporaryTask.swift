@@ -6,55 +6,37 @@
 import Foundation
 import SwiftData
 
-enum TemporaryTaskType: String, Codable, CaseIterable, Identifiable {
-    case caseInvestigation
-    case integration
-    case issueNote
-    case other
+enum TemporaryCategory: String, Codable, CaseIterable, Identifiable {
+    case todo
+    case log
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .caseInvestigation:
-            "case排查"
-        case .integration:
-            "联调"
-        case .issueNote:
-            "问题记录"
-        case .other:
-            "其他"
+        case .todo:
+            "待办"
+        case .log:
+            "日志"
         }
     }
 
-    static let defaultTitle = TemporaryTaskType.caseInvestigation.title
-
-    static var defaultTitles: [String] {
-        allCases.map(\.title)
+    var systemImage: String {
+        switch self {
+        case .todo:
+            "checkmark.circle"
+        case .log:
+            "doc.text"
+        }
     }
 
-    static func displayTitle(for rawValue: String) -> String {
-        let normalizedValue = normalize(rawValue)
-        guard !normalizedValue.isEmpty else {
-            return defaultTitle
+    var emptyHint: String {
+        switch self {
+        case .todo:
+            "暂无待办"
+        case .log:
+            "暂无日志"
         }
-
-        if let legacyType = TemporaryTaskType(rawValue: normalizedValue) {
-            return legacyType.title
-        }
-        return rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    static func storageValue(for title: String) -> String {
-        let normalizedTitle = normalize(title)
-        guard !normalizedTitle.isEmpty else {
-            return defaultTitle
-        }
-        return title.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private static func normalize(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -72,7 +54,7 @@ final class TemporaryTask {
     init(
         id: UUID = UUID(),
         title: String,
-        typeTitle: String = TemporaryTaskType.defaultTitle,
+        category: TemporaryCategory = .todo,
         note: String = "",
         taskDate: Date = Date(),
         isCompleted: Bool = false,
@@ -81,7 +63,7 @@ final class TemporaryTask {
     ) {
         self.id = id
         self.title = title
-        self.typeRaw = TemporaryTaskType.storageValue(for: typeTitle)
+        self.typeRaw = category.rawValue
         self.note = note
         self.taskDate = Calendar.current.startOfDay(for: taskDate)
         self.isCompleted = isCompleted
@@ -89,10 +71,10 @@ final class TemporaryTask {
         self.updatedAt = updatedAt
     }
 
-    var typeTitle: String {
-        get { TemporaryTaskType.displayTitle(for: typeRaw) }
+    var category: TemporaryCategory {
+        get { TemporaryCategory(rawValue: typeRaw) ?? .todo }
         set {
-            typeRaw = TemporaryTaskType.storageValue(for: newValue)
+            typeRaw = newValue.rawValue
             touch()
         }
     }

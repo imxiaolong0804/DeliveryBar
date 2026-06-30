@@ -24,6 +24,7 @@ xcodebuild \
   build
 
 cp -R "$SOURCE_APP" "$STAGING_DIR/$APP_NAME.app"
+ln -s /Applications "$STAGING_DIR/Applications"
 rm -f "$DMG_PATH"
 
 hdiutil create \

@@ -18,22 +18,71 @@ struct MenuBarView: View {
         static let tabHeight: CGFloat = 44
         static let requirementStatusTabHeight: CGFloat = 42
         static let footerHeight: CGFloat = 50
-        static let temporaryContentHeight: CGFloat = 392
         static let settingsContentHeight: CGFloat = 360
+
+        // Temporary tasks: fixed parts
+        static let tempDateSelectorHeight: CGFloat = 78
+        static let tempAddFormHeight: CGFloat = 90
+        static let tempRowHeight: CGFloat = 52
+        static let tempSectionHeaderHeight: CGFloat = 22
+        static let tempMinListHeight: CGFloat = 60
+        static let tempMaxListHeight: CGFloat = 220
+
+        // Quick entries: fixed parts
+        static let quickSearchBarHeight: CGFloat = 44
+        static let quickTypeFilterHeight: CGFloat = 38
+        static let quickRowHeight: CGFloat = 68
+        static let quickMinListHeight: CGFloat = 60
+        static let quickMaxListHeight: CGFloat = 260
     }
 
     @Environment(\.modelContext) private var modelContext
     @AppStorage("remindersEnabled") private var remindersEnabled = true
     @Query(sort: \Requirement.updatedAt, order: .reverse) private var requirements: [Requirement]
     @Query(sort: \TemporaryTask.updatedAt, order: .reverse) private var temporaryTasks: [TemporaryTask]
+    @Query private var quickEntries: [QuickEntry]
 
     @State private var currentTab: MenuBarTab = .requirements
     @State private var selectedRequirementStatus: RequirementStatus = .developing
     @State private var hasResolvedInitialRequirementStatus = false
+    @State private var selectedTempDate = Calendar.current.startOfDay(for: Date())
     @State private var editorRequest: RequirementEditorRequest?
+    @State private var quickEntryEditorRequest: QuickEntryEditorRequest?
 
     private var activeRequirements: [Requirement] {
         requirements.filter { !$0.isArchived }
+    }
+
+    private var existingQuickEntryTags: [String] {
+        let tags = Set(quickEntries.map(\.tag).filter { !$0.isEmpty })
+        return tags.sorted()
+    }
+
+    private var selectedTempTasks: [TemporaryTask] {
+        temporaryTasks
+            .filter { Calendar.current.isDate($0.taskDate, inSameDayAs: selectedTempDate) }
+    }
+
+    private var tempTodoCount: Int {
+        selectedTempTasks.filter { $0.category == .todo }.count
+    }
+
+    private var tempLogCount: Int {
+        selectedTempTasks.filter { $0.category == .log }.count
+    }
+
+    private var tempSectionCount: Int {
+        var count = 0
+        if tempTodoCount > 0 { count += 1 }
+        if tempLogCount > 0 { count += 1 }
+        return count
+    }
+
+    private var filteredQuickEntries: [QuickEntry] {
+        quickEntries.sorted { lhs, rhs in
+            if lhs.usageCount != rhs.usageCount { return lhs.usageCount > rhs.usageCount }
+            return lhs.updatedAt > rhs.updatedAt
+        }
     }
 
     private var archivedRequirements: [Requirement] {
@@ -66,12 +115,40 @@ struct MenuBarView: View {
         Layout.headerHeight + Layout.tabHeight + archiveListHeight + Layout.footerHeight + 3
     }
 
+    private var temporaryListHeight: CGFloat {
+        let count = selectedTempTasks.count
+        if count == 0 { return Layout.tempMinListHeight }
+        let contentHeight = CGFloat(count) * Layout.tempRowHeight
+            + CGFloat(tempSectionCount) * Layout.tempSectionHeaderHeight
+            + Layout.verticalPadding
+        return min(max(contentHeight, Layout.tempMinListHeight), Layout.tempMaxListHeight)
+    }
+
     private var temporaryPanelHeight: CGFloat {
-        Layout.headerHeight + Layout.tabHeight + Layout.temporaryContentHeight + Layout.footerHeight + 3
+        Layout.headerHeight + Layout.tabHeight
+            + Layout.tempDateSelectorHeight + 1
+            + Layout.tempAddFormHeight + 20 + 1
+            + temporaryListHeight
+            + Layout.footerHeight + 3
     }
 
     private var settingsPanelHeight: CGFloat {
         Layout.headerHeight + Layout.tabHeight + Layout.settingsContentHeight + Layout.footerHeight + 3
+    }
+
+    private var quickMapListHeight: CGFloat {
+        let count = filteredQuickEntries.count
+        if count == 0 { return Layout.quickMinListHeight }
+        let contentHeight = CGFloat(count) * Layout.quickRowHeight + Layout.verticalPadding
+        return min(max(contentHeight, Layout.quickMinListHeight), Layout.quickMaxListHeight)
+    }
+
+    private var quickMapPanelHeight: CGFloat {
+        Layout.headerHeight + Layout.tabHeight
+            + Layout.quickSearchBarHeight + 20
+            + 1 + Layout.quickTypeFilterHeight
+            + 1 + quickMapListHeight
+            + Layout.footerHeight + 3
     }
 
     private var tabPanelHeight: CGFloat {
@@ -80,6 +157,8 @@ struct MenuBarView: View {
             mainPanelHeight
         case .temporary:
             temporaryPanelHeight
+        case .quickMap:
+            quickMapPanelHeight
         case .archive:
             archivePanelHeight
         case .settings:
@@ -94,6 +173,14 @@ struct MenuBarView: View {
                     requirement: editorRequest.requirement,
                     onCancel: { self.editorRequest = nil },
                     onComplete: { self.editorRequest = nil }
+                )
+            } else if let quickEntryEditorRequest {
+                QuickEntryEditorView(
+                    entry: quickEntryEditorRequest.entry,
+                    existingKeys: quickEntryEditorRequest.existingKeys,
+                    existingTags: existingQuickEntryTags,
+                    onCancel: { self.quickEntryEditorRequest = nil },
+                    onComplete: { self.quickEntryEditorRequest = nil }
                 )
             } else {
                 tabbedPage
@@ -165,8 +252,16 @@ struct MenuBarView: View {
         case .requirements:
             mainList
         case .temporary:
-            TemporaryTasksView()
-                .frame(height: Layout.temporaryContentHeight)
+            TemporaryTasksView(listHeight: temporaryListHeight, selectedDate: $selectedTempDate)
+                .frame(height: Layout.tempDateSelectorHeight + 1 + Layout.tempAddFormHeight + 20 + 1 + temporaryListHeight)
+        case .quickMap:
+            QuickEntryListView(listHeight: quickMapListHeight, onEdit: { entry in
+                quickEntryEditorRequest = QuickEntryEditorRequest(
+                    entry: entry,
+                    existingKeys: quickEntries.filter { $0.id != entry.id }.map(\.key)
+                )
+            })
+                .frame(height: Layout.quickSearchBarHeight + 20 + 1 + Layout.quickTypeFilterHeight + 1 + quickMapListHeight)
         case .archive:
             archiveList
         case .settings:
@@ -177,7 +272,7 @@ struct MenuBarView: View {
 
     private func header(title: String, subtitle: String) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "checklist")
+            Image(systemName: currentTab.systemImage)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DeliveryBarTheme.ink)
                 .frame(width: 32, height: 32)
@@ -227,7 +322,9 @@ struct MenuBarView: View {
         case .requirements:
             summaryText
         case .temporary:
-            "最近 7 天临时 case、排查和联调"
+            "待办与工作日志"
+        case .quickMap:
+            quickEntries.isEmpty ? "保存常用的链接、脚本和文本片段" : "\(quickEntries.count) 个快捷录"
         case .archive:
             "\(archivedRequirements.count) 个已归档需求"
         case .settings:
@@ -349,6 +446,17 @@ struct MenuBarView: View {
                 }
             }
 
+            if currentTab == .quickMap {
+                Button {
+                    quickEntryEditorRequest = QuickEntryEditorRequest(
+                        entry: nil,
+                        existingKeys: quickEntries.map(\.key)
+                    )
+                } label: {
+                    Label("新增快捷录", systemImage: "plus")
+                }
+            }
+
             Spacer()
 
             Button("退出") {
@@ -450,6 +558,7 @@ struct MenuBarView: View {
 enum MenuBarTab: String, CaseIterable, Identifiable {
     case requirements
     case temporary
+    case quickMap
     case archive
     case settings
 
@@ -461,6 +570,8 @@ enum MenuBarTab: String, CaseIterable, Identifiable {
             "需求列表"
         case .temporary:
             "临时"
+        case .quickMap:
+            "快捷录"
         case .archive:
             "归档"
         case .settings:
@@ -474,6 +585,8 @@ enum MenuBarTab: String, CaseIterable, Identifiable {
             "checklist"
         case .temporary:
             "calendar.badge.clock"
+        case .quickMap:
+            "keyboard"
         case .archive:
             "archivebox"
         case .settings:

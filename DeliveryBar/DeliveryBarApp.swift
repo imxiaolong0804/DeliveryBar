@@ -15,6 +15,7 @@ struct DeliveryBarApp: App {
             Requirement.self,
             TemporaryTask.self,
             PersonProfile.self,
+            QuickEntry.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

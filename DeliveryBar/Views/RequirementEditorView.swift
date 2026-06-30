@@ -494,6 +494,7 @@ private struct StatusSelector: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(RequirementStatus.editableList) { status in
+                    let isSelected = selection == status
                     Button {
                         selection = status
                     } label: {
@@ -506,15 +507,27 @@ private struct StatusSelector: View {
                                 .lineLimit(1)
                         }
                         .font(.caption)
+                        .foregroundStyle(isSelected ? status.tintColor : DeliveryBarTheme.softText)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
+                        .padding(.vertical, 6)
+                        .background(statusBackground(for: status, isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(status.tintColor.opacity(isSelected ? 0.55 : 0.18))
+                        }
                     }
-                    .buttonStyle(.bordered)
-                    .tint(selection == status ? status.tintColor : DeliveryBarTheme.muted)
+                    .buttonStyle(.plain)
                 }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func statusBackground(for status: RequirementStatus, isSelected: Bool) -> Color {
+        if isSelected {
+            return status.tintColor.opacity(0.16)
+        }
+        return DeliveryBarTheme.cardBackground
     }
 }
 
