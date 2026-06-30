@@ -75,7 +75,7 @@ xcodebuild -project DeliveryBar.xcodeproj \
 ### 打包 DMG
 
 ```bash
-./scripts/package_dmg.sh 1.0.1
+./scripts/package_dmg.sh 1.0.2
 ```
 
 生成的 `.dmg` 文件位于 `dist/` 目录。

@@ -8,7 +8,7 @@ PROJECT="$ROOT_DIR/DeliveryBar.xcodeproj"
 DERIVED_DATA="$ROOT_DIR/.build/DerivedData"
 DIST_DIR="$ROOT_DIR/dist"
 STAGING_DIR="$ROOT_DIR/.build/dmg-staging"
-VERSION="${1:-1.0.1}"
+VERSION="${1:-1.0.2}"
 DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 SOURCE_APP="$DERIVED_DATA/Build/Products/Release/$SCHEME.app"
 
