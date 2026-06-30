@@ -10,8 +10,10 @@ struct MenuBarView: View {
     private enum Layout {
         static let panelWidth: CGFloat = 460
         static let minListHeight: CGFloat = 84
-        static let maxListHeight: CGFloat = 280
-        static let rowHeight: CGFloat = 76
+        static let maxListHeight: CGFloat = 320
+        static let rowHeight: CGFloat = 86
+        static let rowSpacing: CGFloat = 8
+        static let listVerticalPadding: CGFloat = 16
         static let sectionHeaderHeight: CGFloat = 24
         static let verticalPadding: CGFloat = 12
         static let headerHeight: CGFloat = 54
@@ -504,9 +506,11 @@ struct MenuBarView: View {
             return 70
         }
 
+        let rowSpacing = CGFloat(max(rowCount - 1, 0)) * Layout.rowSpacing
         let contentHeight = CGFloat(rowCount) * Layout.rowHeight
+            + rowSpacing
             + CGFloat(sectionCount) * Layout.sectionHeaderHeight
-            + Layout.verticalPadding
+            + Layout.listVerticalPadding
         return min(max(contentHeight, Layout.minListHeight), Layout.maxListHeight)
     }
 

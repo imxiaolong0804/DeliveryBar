@@ -121,6 +121,7 @@ final class Requirement {
     var title: String
     var detail: String
     var note: String
+    var link: String
     var statusRaw: String
     var priorityRaw: Int
     var owner: String
@@ -139,6 +140,7 @@ final class Requirement {
         title: String,
         detail: String = "",
         note: String = "",
+        link: String = "",
         status: RequirementStatus = .todo,
         priority: RequirementPriority = .medium,
         owner: String = "",
@@ -156,6 +158,7 @@ final class Requirement {
         self.title = title
         self.detail = detail
         self.note = note
+        self.link = link
         self.statusRaw = status.rawValue
         self.priorityRaw = priority.rawValue
         self.owner = owner

@@ -20,6 +20,7 @@ struct RequirementEditorView: View {
     @State private var tester: String
     @State private var detail: String
     @State private var note: String
+    @State private var link: String
     @State private var status: RequirementStatus
     @State private var priority: RequirementPriority
     @State private var hasDueDate: Bool
@@ -40,6 +41,7 @@ struct RequirementEditorView: View {
         _tester = State(initialValue: requirement?.tester ?? "")
         _detail = State(initialValue: requirement?.detail ?? "")
         _note = State(initialValue: requirement?.note ?? "")
+        _link = State(initialValue: requirement?.link ?? "")
         _status = State(initialValue: requirement?.status ?? .todo)
         _priority = State(initialValue: requirement?.priority ?? .medium)
         _hasDueDate = State(initialValue: requirement?.dueDate != nil)
@@ -83,6 +85,14 @@ struct RequirementEditorView: View {
 
                         StatusSelector(selection: $status)
                         PrioritySelector(selection: $priority)
+
+                        EditorTextField(
+                            title: "需求链接",
+                            placeholder: "如望岳、Jira 链接，可选",
+                            text: $link,
+                            focusedField: $focusedField,
+                            field: .link
+                        )
                     }
 
                     EditorSection("时间") {
@@ -211,6 +221,7 @@ struct RequirementEditorView: View {
             requirement.tester = savedTester
             requirement.detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
             requirement.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            requirement.link = link.trimmingCharacters(in: .whitespacesAndNewlines)
             requirement.priority = priority
             requirement.status = status
             requirement.dueDate = hasDueDate ? dueDate : nil
@@ -220,6 +231,7 @@ struct RequirementEditorView: View {
                 title: normalizedTitle,
                 detail: detail.trimmingCharacters(in: .whitespacesAndNewlines),
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+                link: link.trimmingCharacters(in: .whitespacesAndNewlines),
                 status: status,
                 priority: priority,
                 owner: owner.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -282,6 +294,7 @@ private enum EditorField: Hashable {
     case tester
     case detail
     case note
+    case link
 }
 
 private struct EditorSection<Content: View>: View {

@@ -15,10 +15,15 @@ struct TemporaryTasksView: View {
 
     @State private var title = ""
     @State private var note = ""
-    @State private var category: TemporaryCategory = .todo
+    @State private var category: TemporaryCategory = .log
     @State private var validationMessage: String?
 
     private var calendar: Calendar { .current }
+
+    private var hasDraftInput: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     private var visibleDates: [Date] {
         let today = calendar.startOfDay(for: Date())
@@ -83,6 +88,7 @@ struct TemporaryTasksView: View {
         }
         .onAppear {
             ensureSelectedDateInRange()
+            resetCategoryToLogIfPossible()
             cleanupExpiredTasks()
         }
     }
@@ -259,6 +265,11 @@ struct TemporaryTasksView: View {
         validationMessage = nil
         cleanupExpiredTasks()
         saveContext()
+    }
+
+    private func resetCategoryToLogIfPossible() {
+        guard !hasDraftInput else { return }
+        category = .log
     }
 
     private func cleanupExpiredTasks() {

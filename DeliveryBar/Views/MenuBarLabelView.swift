@@ -20,7 +20,7 @@ struct MenuBarLabelView: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "checklist")
+            Image(systemName: "checklist.checked")
 
             if attentionCount > 0 {
                 Text("\(attentionCount)")

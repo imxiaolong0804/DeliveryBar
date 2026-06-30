@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct RequirementRowView: View {
     let requirement: Requirement
@@ -21,95 +22,27 @@ struct RequirementRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(requirement.status.tintColor)
+                    .fill(requirement.priority.tintColor)
                     .frame(width: 4)
+                    .frame(maxHeight: .infinity)
+                    .help(requirement.priority.badgeTitle)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(requirement.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(DeliveryBarTheme.ink)
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        titleView
+                            .layoutPriority(1)
 
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("PM \(displayPM)")
-                        Text("测试 \(displayTester)")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(DeliveryBarTheme.softText)
-                }
-                .frame(width: 108, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    if !requirement.detail.isEmpty {
-                        Text(requirement.detail)
-                            .font(.caption)
-                            .foregroundStyle(DeliveryBarTheme.softText)
-                            .lineLimit(2)
-                    } else {
-                        Text("暂无描述")
-                            .font(.caption)
-                            .foregroundStyle(DeliveryBarTheme.softText.opacity(0.64))
-                            .lineLimit(1)
+                        actionButtons
                     }
 
-                    HStack(alignment: .center, spacing: 8) {
-                        PriorityBadge(priority: requirement.priority)
+                    detailView
 
-                        HStack(spacing: 6) {
-                            Text(DateUtils.relativeUpdateText(for: requirement.updatedAt))
-
-                            if let dueDate = requirement.dueDate {
-                                Text(DateUtils.dueText(for: dueDate))
-                            }
-
-                            if let attentionReason {
-                                Text(attentionReason)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(DeliveryBarTheme.danger)
-                            }
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(DeliveryBarTheme.softText)
-                        .lineLimit(1)
-                    }
+                    metadataRow
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .trailing, spacing: 4) {
-                    Button("编辑", action: onEdit)
-                        .font(.caption2)
-
-                    if onChangeStatus != nil {
-                        Button(requirement.status.compactTitle) {
-                            withAnimation(.snappy(duration: 0.16)) {
-                                isSelectingStatus.toggle()
-                                isConfirmingDelete = false
-                            }
-                        }
-                        .font(.caption2)
-                    }
-
-                    if onDelete != nil {
-                        Button("删除", role: .destructive) {
-                            withAnimation(.snappy(duration: 0.16)) {
-                                isConfirmingDelete.toggle()
-                                isSelectingStatus = false
-                            }
-                        }
-                        .font(.caption2)
-                    }
-
-                    if let onRestore {
-                        Button("恢复", action: onRestore)
-                            .font(.caption2)
-                    }
-                }
-                .buttonStyle(.borderless)
-                .frame(width: 58, alignment: .trailing)
             }
 
             if isConfirmingDelete, let onDelete {
@@ -134,12 +67,149 @@ struct RequirementRowView: View {
                 }
             }
         }
-        .padding(8)
+        .padding(10)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(requirement.status.tintColor.opacity(0.26))
+                .stroke(rowStroke)
         }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        HStack(spacing: 6) {
+            Button("编辑", action: onEdit)
+
+            if onDelete != nil {
+                Button("删除", role: .destructive) {
+                    withAnimation(.snappy(duration: 0.16)) {
+                        isConfirmingDelete.toggle()
+                        isSelectingStatus = false
+                    }
+                }
+            }
+
+            if let onRestore {
+                Button("恢复", action: onRestore)
+            }
+        }
+        .font(.caption2)
+        .buttonStyle(.borderless)
+        .fixedSize()
+    }
+
+    private var detailView: some View {
+        Group {
+            if !requirement.detail.isEmpty {
+                Text(requirement.detail)
+                    .foregroundStyle(DeliveryBarTheme.softText)
+                    .lineLimit(2)
+            } else {
+                Text("暂无描述")
+                    .foregroundStyle(DeliveryBarTheme.softText.opacity(0.64))
+                    .lineLimit(1)
+            }
+        }
+        .font(.caption)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var metadataRow: some View {
+        HStack(spacing: 6) {
+            statusPill
+            InfoPill(text: "PM \(displayPM)")
+            InfoPill(text: "测试 \(displayTester)")
+            InfoPill(text: DateUtils.relativeUpdateText(for: requirement.updatedAt))
+
+            if let dueDate = requirement.dueDate {
+                InfoPill(text: DateUtils.dueText(for: dueDate))
+            }
+
+            if let attentionReason {
+                InfoPill(text: attentionReason, tint: DeliveryBarTheme.danger, isEmphasized: true)
+                    .layoutPriority(1)
+            }
+        }
+        .lineLimit(1)
+    }
+
+    @ViewBuilder
+    private var statusPill: some View {
+        if onChangeStatus != nil {
+            Button {
+                withAnimation(.snappy(duration: 0.16)) {
+                    isSelectingStatus.toggle()
+                    isConfirmingDelete = false
+                }
+            } label: {
+                StatusPill(status: requirement.status)
+            }
+            .buttonStyle(.plain)
+        } else {
+            StatusPill(status: requirement.status)
+        }
+    }
+
+    private var rowStroke: Color {
+        if attentionReason != nil {
+            return DeliveryBarTheme.danger.opacity(0.36)
+        }
+        return requirement.priority.tintColor.opacity(0.28)
+    }
+
+    private var rowBackground: Color {
+        if attentionReason != nil {
+            return DeliveryBarTheme.danger.opacity(0.08)
+        }
+
+        switch requirement.priority {
+        case .high:
+            return DeliveryBarTheme.danger.opacity(0.07)
+        case .medium:
+            return DeliveryBarTheme.accent.opacity(0.08)
+        case .low:
+            return DeliveryBarTheme.cardBackground
+        }
+    }
+
+    @ViewBuilder
+    private var titleView: some View {
+        if let requirementURL {
+            Button {
+                NSWorkspace.shared.open(requirementURL)
+            } label: {
+                titleLabel(isLinked: true)
+            }
+            .buttonStyle(.plain)
+            .help(requirement.link)
+        } else {
+            titleLabel(isLinked: false)
+        }
+    }
+
+    private func titleLabel(isLinked: Bool) -> some View {
+        HStack(spacing: 4) {
+            Text(requirement.title)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if isLinked {
+                Image(systemName: "link")
+                    .font(.system(size: 9, weight: .semibold))
+                    .imageScale(.small)
+            }
+        }
+        .font(.subheadline)
+        .fontWeight(.medium)
+        .foregroundStyle(isLinked ? DeliveryBarTheme.accent : DeliveryBarTheme.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private var requirementURL: URL? {
+        let normalizedLink = requirement.link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedLink.isEmpty else { return nil }
+        return URL(string: normalizedLink)
     }
 
     private var displayPM: String {
@@ -153,12 +223,6 @@ struct RequirementRowView: View {
         return tester
     }
 
-    private var rowBackground: Color {
-        if attentionReason != nil {
-            return DeliveryBarTheme.danger.opacity(0.08)
-        }
-        return DeliveryBarTheme.cardBackground
-    }
 }
 
 private struct DeleteConfirmationStrip: View {
@@ -187,21 +251,52 @@ private struct DeleteConfirmationStrip: View {
     }
 }
 
-private struct PriorityBadge: View {
-    let priority: RequirementPriority
+private struct StatusPill: View {
+    let status: RequirementStatus
 
     var body: some View {
-        Text(priority.badgeTitle)
-            .font(.callout)
-            .fontWeight(.bold)
-            .foregroundStyle(priority.tintColor)
-            .padding(.horizontal, 8)
+        HStack(spacing: 4) {
+            Circle()
+                .fill(status.tintColor)
+                .frame(width: 5, height: 5)
+
+            Text(status.compactTitle)
+        }
+        .font(.caption2)
+        .foregroundStyle(status.tintColor)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(status.tintColor.opacity(0.12), in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(status.tintColor.opacity(0.22))
+        }
+    }
+}
+
+private struct InfoPill: View {
+    let text: String
+    var tint: Color = DeliveryBarTheme.softText
+    var isEmphasized = false
+
+    var body: some View {
+        Text(text)
+            .font(.caption2)
+            .fontWeight(isEmphasized ? .semibold : .regular)
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(priority.tintColor.opacity(0.14), in: Capsule())
+            .background(backgroundColor, in: Capsule())
             .overlay {
                 Capsule()
-                    .stroke(priority.tintColor.opacity(0.22))
+                    .stroke(tint.opacity(isEmphasized ? 0.20 : 0.08))
             }
+    }
+
+    private var backgroundColor: Color {
+        isEmphasized ? tint.opacity(0.10) : Color.white.opacity(0.28)
     }
 }
 
