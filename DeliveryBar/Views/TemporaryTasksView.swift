@@ -34,7 +34,16 @@ struct TemporaryTasksView: View {
 
     private var selectedTasks: [TemporaryTask] {
         temporaryTasks
-            .filter { calendar.isDate($0.taskDate, inSameDayAs: selectedDate) }
+            .filter { task in
+                if calendar.isDate(task.taskDate, inSameDayAs: selectedDate) {
+                    return true
+                }
+                if task.category == .todo && !task.isCompleted
+                    && calendar.startOfDay(for: task.taskDate) < calendar.startOfDay(for: selectedDate) {
+                    return true
+                }
+                return false
+            }
     }
 
     private var todoTasks: [TemporaryTask] {
@@ -275,7 +284,10 @@ struct TemporaryTasksView: View {
     private func cleanupExpiredTasks() {
         let cutoffDate = oldestAllowedDate()
         temporaryTasks
-            .filter { calendar.startOfDay(for: $0.taskDate) < cutoffDate }
+            .filter { task in
+                calendar.startOfDay(for: task.taskDate) < cutoffDate
+                    && (task.category == .log || task.isCompleted)
+            }
             .forEach { modelContext.delete($0) }
         saveContext()
     }

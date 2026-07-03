@@ -47,7 +47,10 @@ struct MenuBarLabelView: View {
         let today = calendar.startOfDay(for: Date())
         let cutoffDate = calendar.date(byAdding: .day, value: -6, to: today) ?? today
         temporaryTasks
-            .filter { calendar.startOfDay(for: $0.taskDate) < cutoffDate }
+            .filter { task in
+                calendar.startOfDay(for: task.taskDate) < cutoffDate
+                    && (task.category == .log || task.isCompleted)
+            }
             .forEach { modelContext.delete($0) }
 
         do {
