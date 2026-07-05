@@ -272,12 +272,7 @@ private struct QuickEditorSection<Content: View>: View {
             VStack(alignment: .leading, spacing: 10) {
                 content
             }
-            .padding(10)
-            .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(DeliveryBarTheme.cardStroke)
-            }
+            .deliveryCard(padding: 10)
         }
     }
 }
@@ -346,13 +341,7 @@ private struct TypeSelector: View {
                                 .lineLimit(1)
                         }
                         .font(.caption)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(typeBackground(for: type), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(type.tintColor.opacity(selection == type ? 0.55 : 0.18))
-                        }
+                        .selectablePill(isSelected: selection == type, tint: type.tintColor, verticalPadding: 6)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(type.tintColor)
@@ -360,13 +349,6 @@ private struct TypeSelector: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private func typeBackground(for type: QuickEntryType) -> Color {
-        if selection == type {
-            return type.tintColor.opacity(0.14)
-        }
-        return DeliveryBarTheme.cardBackground
     }
 }
 

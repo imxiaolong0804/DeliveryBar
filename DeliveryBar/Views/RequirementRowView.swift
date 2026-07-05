@@ -28,7 +28,7 @@ struct RequirementRowView: View {
                     .fill(requirement.priority.tintColor)
                     .frame(width: requirement.priority.sideBarWidth)
                     .frame(maxHeight: .infinity)
-                    .help(requirement.priority.badgeTitle)
+                    .help("\(requirement.priority.rankTitle) \(requirement.priority.helperText)")
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top, spacing: 8) {
@@ -69,12 +69,8 @@ struct RequirementRowView: View {
                 }
             }
         }
-        .padding(10)
-        .background(rowBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(rowStroke)
-        }
+        .deliveryCard(padding: 10, stroke: rowStroke, background: rowBackground)
+        .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
     }
 
     @ViewBuilder
@@ -170,9 +166,9 @@ struct RequirementRowView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(Color.white.opacity(0.30), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .background(Color(nsColor: .quinarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(nextStatus.tintColor.opacity(0.16))
             }
         }
@@ -341,7 +337,7 @@ private struct PriorityPill: View {
             Capsule()
                 .stroke(priority.tintColor.opacity(priority.strokeOpacity))
         }
-        .help(priority.helperText)
+        .help("\(priority.rankTitle) \(priority.helperText)")
     }
 }
 
@@ -367,7 +363,7 @@ private struct InfoPill: View {
     }
 
     private var backgroundColor: Color {
-        isEmphasized ? tint.opacity(0.10) : Color.white.opacity(0.28)
+        isEmphasized ? tint.opacity(0.10) : Color(nsColor: .quinarySystemFill)
     }
 }
 
@@ -441,11 +437,11 @@ extension RequirementStatus {
         case .developing:
             DeliveryBarTheme.accent
         case .developedNotDelivered:
-            Color(red: 0.78, green: 0.55, blue: 0.18)
+            Color(nsColor: .systemOrange)
         case .waitingAcceptance:
-            Color(red: 0.70, green: 0.50, blue: 0.18)
+            Color(nsColor: .systemOrange)
         case .waitingRelease:
-            Color(red: 0.58, green: 0.48, blue: 0.82)
+            Color(nsColor: .systemPurple)
         case .completed:
             DeliveryBarTheme.success
         case .archived:
@@ -454,7 +450,7 @@ extension RequirementStatus {
     }
 }
 
-private extension RequirementPriority {
+extension RequirementPriority {
     var badgeTitle: String {
         switch self {
         case .low:
@@ -480,11 +476,11 @@ private extension RequirementPriority {
     var helperText: String {
         switch self {
         case .low:
-            "P2 低优先级"
+            "低优先级"
         case .medium:
-            "P1 中优先级"
+            "中优先级"
         case .high:
-            "P0 高优先级"
+            "高优先级"
         }
     }
 

@@ -180,7 +180,7 @@ struct JSONFormatterView: View {
         .labelStyle(.titleAndIcon)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.18))
+        .background(Color(nsColor: .quinarySystemFill))
     }
 
     private var formatterContent: some View {
@@ -238,7 +238,7 @@ struct JSONFormatterView: View {
             editorSection(
                 title: "结果",
                 value: outputText,
-                background: Color.white.opacity(0.45)
+                background: Color(nsColor: .quaternarySystemFill)
             ) {
                 SearchableJSONTextView(
                     text: .constant(outputText),
@@ -276,12 +276,7 @@ struct JSONFormatterView: View {
 
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(6)
-                .background(background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(DeliveryBarTheme.cardStroke)
-                }
+                .deliveryCard(padding: 6, background: background)
         }
     }
 
@@ -368,7 +363,7 @@ struct JSONFormatterView: View {
                 }
             }
         }
-        .background(Color.white.opacity(0.18))
+        .background(Color(nsColor: .quinarySystemFill))
     }
 
     private func historyRow(_ history: JSONFormatHistory) -> some View {
@@ -386,12 +381,8 @@ struct JSONFormatterView: View {
                     .foregroundStyle(DeliveryBarTheme.softText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(DeliveryBarTheme.cardStroke)
-            }
+            .deliveryCard(padding: 8)
+            .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
         }
         .buttonStyle(.plain)
     }

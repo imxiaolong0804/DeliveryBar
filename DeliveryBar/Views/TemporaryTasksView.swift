@@ -133,13 +133,7 @@ struct TemporaryTasksView: View {
                                 .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
                         }
                         .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
-                        }
+                        .selectablePill(isSelected: isSelected, verticalPadding: 6)
                     }
                     .buttonStyle(.plain)
                 }
@@ -178,12 +172,7 @@ struct TemporaryTasksView: View {
                     .foregroundStyle(DeliveryBarTheme.danger)
             }
         }
-        .padding(10)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(DeliveryBarTheme.cardStroke)
-        }
+        .deliveryCard(padding: 10)
     }
 
     private var taskList: some View {
@@ -419,12 +408,8 @@ private struct TodoTaskRow: View {
                 .buttonStyle(.borderless)
             }
         }
-        .padding(8)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(DeliveryBarTheme.cardStroke)
-        }
+        .deliveryCard(padding: 8)
+        .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
     }
 }
 
@@ -483,11 +468,7 @@ private struct LogTaskRow: View {
                 .buttonStyle(.borderless)
             }
         }
-        .padding(8)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(DeliveryBarTheme.cardStroke)
-        }
+        .deliveryCard(padding: 8)
+        .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
     }
 }

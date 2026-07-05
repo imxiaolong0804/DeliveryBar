@@ -157,14 +157,11 @@ private struct SettingSection<Content: View>: View {
                 content()
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(DeliveryBarTheme.cardStroke, lineWidth: 1)
-        }
+        .deliveryCard(
+            padding: EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10),
+            stroke: DeliveryBarTheme.cardStroke
+        )
     }
 }
 

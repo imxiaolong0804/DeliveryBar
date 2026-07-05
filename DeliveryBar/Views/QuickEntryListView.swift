@@ -3,6 +3,7 @@
 //  DeliveryBar
 //
 
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -77,12 +78,7 @@ struct QuickEntryListView: View {
                 .buttonStyle(.borderless)
             }
         }
-        .padding(8)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(DeliveryBarTheme.cardStroke)
-        }
+        .deliveryCard(padding: 8)
     }
 
     private var typeFilter: some View {
@@ -116,13 +112,7 @@ struct QuickEntryListView: View {
             }
             .font(.caption)
             .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 5)
-            .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
-            }
+            .selectablePill(isSelected: isSelected, verticalPadding: 5)
         }
         .buttonStyle(.plain)
     }
@@ -298,12 +288,8 @@ private struct QuickEntryRow: View {
                 .padding(.leading, 28)
             }
         }
-        .padding(8)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(entry.type.tintColor.opacity(0.20))
-        }
+        .deliveryCard(padding: 8, stroke: entry.type.tintColor.opacity(0.20))
+        .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
     }
 }
 
@@ -313,9 +299,9 @@ extension QuickEntryType {
     var tintColor: Color {
         switch self {
         case .link:
-            Color(red: 0.22, green: 0.52, blue: 0.78)
+            Color(nsColor: .systemBlue)
         case .script:
-            Color(red: 0.52, green: 0.42, blue: 0.74)
+            Color(nsColor: .systemPurple)
         case .snippet:
             DeliveryBarTheme.accent
         }

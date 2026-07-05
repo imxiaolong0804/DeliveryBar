@@ -258,13 +258,7 @@ struct MenuBarView: View {
                     Label(tab.title, systemImage: tab.systemImage)
                         .font(.caption)
                         .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
-                        }
+                        .selectablePill(isSelected: isSelected, verticalPadding: 5)
                 }
                 .buttonStyle(.plain)
             }
@@ -421,13 +415,7 @@ struct MenuBarView: View {
                         }
                         .font(.caption)
                         .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
-                        }
+                        .selectablePill(isSelected: isSelected, verticalPadding: 5)
                     }
                     .buttonStyle(.plain)
 

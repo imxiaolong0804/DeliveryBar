@@ -314,12 +314,7 @@ private struct EditorSection<Content: View>: View {
             VStack(alignment: .leading, spacing: 10) {
                 content
             }
-            .padding(10)
-            .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(DeliveryBarTheme.cardStroke)
-            }
+            .deliveryCard(padding: 10)
         }
     }
 }
@@ -520,26 +515,13 @@ private struct StatusSelector: View {
                         }
                         .font(.caption)
                         .foregroundStyle(isSelected ? status.tintColor : DeliveryBarTheme.softText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(statusBackground(for: status, isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(status.tintColor.opacity(isSelected ? 0.55 : 0.18))
-                        }
+                        .selectablePill(isSelected: isSelected, tint: status.tintColor, verticalPadding: 6)
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private func statusBackground(for status: RequirementStatus, isSelected: Bool) -> Color {
-        if isSelected {
-            return status.tintColor.opacity(0.16)
-        }
-        return DeliveryBarTheme.cardBackground
     }
 }
 
@@ -572,13 +554,7 @@ private struct PrioritySelector: View {
                                 .font(.caption2)
                                 .foregroundStyle(DeliveryBarTheme.softText)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(priorityBackground(for: priority), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(priority.tintColor.opacity(selection == priority ? 0.55 : 0.18))
-                        }
+                        .selectablePill(isSelected: selection == priority, tint: priority.tintColor, verticalPadding: 8)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(priority.tintColor)
@@ -586,58 +562,5 @@ private struct PrioritySelector: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private func priorityBackground(for priority: RequirementPriority) -> Color {
-        if selection == priority {
-            return priority.tintColor.opacity(0.16)
-        }
-        return DeliveryBarTheme.cardBackground
-    }
-}
-
-private extension RequirementPriority {
-    var badgeTitle: String {
-        switch self {
-        case .low:
-            "低"
-        case .medium:
-            "中"
-        case .high:
-            "高"
-        }
-    }
-
-    var rankTitle: String {
-        switch self {
-        case .low:
-            "P2"
-        case .medium:
-            "P1"
-        case .high:
-            "P0"
-        }
-    }
-
-    var helperText: String {
-        switch self {
-        case .low:
-            "低优先级"
-        case .medium:
-            "中优先级"
-        case .high:
-            "高优先级"
-        }
-    }
-
-    var tintColor: Color {
-        switch self {
-        case .low:
-            DeliveryBarTheme.muted
-        case .medium:
-            DeliveryBarTheme.accent
-        case .high:
-            DeliveryBarTheme.danger
-        }
     }
 }
