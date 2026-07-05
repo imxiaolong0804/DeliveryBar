@@ -41,7 +41,9 @@ enum ReminderService {
         case .developedNotDelivered:
             return "\(elapsedDays) 天未交付"
         case .waitingAcceptance:
-            return "\(elapsedDays) 天待验收"
+            return "\(elapsedDays) 天测试中"
+        case .waitingRelease:
+            return "\(elapsedDays) 天待上线"
         case .todo, .completed, .archived:
             return nil
         }

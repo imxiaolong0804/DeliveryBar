@@ -11,6 +11,7 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
     case developing
     case developedNotDelivered
     case waitingAcceptance
+    case waitingRelease
     case completed
     case archived
 
@@ -20,6 +21,7 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
         .todo,
         .developing,
         .waitingAcceptance,
+        .waitingRelease,
         .completed
     ]
 
@@ -27,6 +29,7 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
         .todo,
         .developing,
         .waitingAcceptance,
+        .waitingRelease,
         .completed,
         .archived
     ]
@@ -40,7 +43,9 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
         case .developedNotDelivered:
             "已开发，未交付"
         case .waitingAcceptance:
-            "待验收"
+            "测试中"
+        case .waitingRelease:
+            "待上线"
         case .completed:
             "已完成"
         case .archived:
@@ -57,6 +62,8 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
         case .developedNotDelivered:
             .waitingAcceptance
         case .waitingAcceptance:
+            .waitingRelease
+        case .waitingRelease:
             .completed
         case .completed:
             .archived
@@ -70,11 +77,13 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
         case .todo:
             "开始开发"
         case .developing:
-            "开发完成"
+            "提测"
         case .developedNotDelivered:
-            "已交付"
+            "进入测试"
         case .waitingAcceptance:
-            "完成"
+            "测试通过"
+        case .waitingRelease:
+            "上线完成"
         case .completed:
             "归档"
         case .archived:
@@ -89,6 +98,8 @@ enum RequirementStatus: String, Codable, CaseIterable, Identifiable {
         case .developing:
             7
         case .waitingAcceptance:
+            5
+        case .waitingRelease:
             5
         case .todo, .completed, .archived:
             nil

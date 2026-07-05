@@ -16,5 +16,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Requirement.self, TemporaryTask.self, PersonProfile.self], inMemory: true)
+        .modelContainer(for: [Requirement.self, TemporaryTask.self, PersonProfile.self, QuickEntry.self, JSONFormatHistory.self], inMemory: true)
 }

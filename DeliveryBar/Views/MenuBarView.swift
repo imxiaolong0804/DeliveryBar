@@ -7,18 +7,29 @@ import SwiftData
 import SwiftUI
 
 struct MenuBarView: View {
+    private let onOpenJSONFormatter: () -> Void
+    private let onPreferredSizeChange: (CGSize) -> Void
+
+    init(
+        onOpenJSONFormatter: @escaping () -> Void = {},
+        onPreferredSizeChange: @escaping (CGSize) -> Void = { _ in }
+    ) {
+        self.onOpenJSONFormatter = onOpenJSONFormatter
+        self.onPreferredSizeChange = onPreferredSizeChange
+    }
+
     private enum Layout {
         static let panelWidth: CGFloat = 460
         static let minListHeight: CGFloat = 84
         static let maxListHeight: CGFloat = 320
-        static let rowHeight: CGFloat = 86
+        static let rowHeight: CGFloat = 118
         static let rowSpacing: CGFloat = 8
         static let listVerticalPadding: CGFloat = 16
         static let sectionHeaderHeight: CGFloat = 24
         static let verticalPadding: CGFloat = 12
         static let headerHeight: CGFloat = 54
         static let tabHeight: CGFloat = 44
-        static let requirementStatusTabHeight: CGFloat = 42
+        static let requirementStatusTabHeight: CGFloat = 68
         static let footerHeight: CGFloat = 50
         static let settingsContentHeight: CGFloat = 360
 
@@ -168,6 +179,18 @@ struct MenuBarView: View {
         }
     }
 
+    private var preferredPanelHeight: CGFloat {
+        if editorRequest != nil {
+            return 480
+        }
+
+        if quickEntryEditorRequest != nil {
+            return 420
+        }
+
+        return tabPanelHeight
+    }
+
     var body: some View {
         Group {
             if let editorRequest {
@@ -193,11 +216,15 @@ struct MenuBarView: View {
             migrateLegacyUndeliveredRequirements()
             cleanupExpiredTemporaryTasks()
             resolveInitialRequirementStatusIfNeeded()
+            notifyPreferredSize()
         }
         .onChange(of: currentTab) { _, newTab in
             if newTab == .temporary {
                 cleanupExpiredTemporaryTasks()
             }
+        }
+        .onChange(of: preferredPanelHeight) { _, _ in
+            notifyPreferredSize()
         }
     }
 
@@ -366,34 +393,55 @@ struct MenuBarView: View {
     }
 
     private var requirementStatusTabs: some View {
-        HStack(spacing: 6) {
-            ForEach(RequirementStatus.mainList) { status in
-                Button {
-                    selectedRequirementStatus = status
-                } label: {
-                    let isSelected = selectedRequirementStatus == status
-                    HStack(spacing: 4) {
-                        Text(status.compactTitle)
-                            .lineLimit(1)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("需求流转")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(DeliveryBarTheme.ink)
 
-                        Text("\(requirements(for: status).count)")
-                            .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
+                Spacer()
+
+                Text("点击阶段筛选，卡片右侧推进下一步")
+                    .font(.caption2)
+                    .foregroundStyle(DeliveryBarTheme.softText)
+            }
+
+            HStack(spacing: 4) {
+                ForEach(Array(RequirementStatus.mainList.enumerated()), id: \.element.id) { index, status in
+                    Button {
+                        selectedRequirementStatus = status
+                    } label: {
+                        let isSelected = selectedRequirementStatus == status
+                        HStack(spacing: 4) {
+                            Text(status.compactTitle)
+                                .lineLimit(1)
+
+                            Text("\(requirements(for: status).count)")
+                                .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
+                        }
                     }
-                    .font(.caption)
-                    .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-                    .background(DeliveryBarTheme.pillBackground(isSelected: isSelected), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(DeliveryBarTheme.pillStroke(isSelected: isSelected))
+                    .buttonStyle(.plain)
+
+                    if index < RequirementStatus.mainList.count - 1 {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(DeliveryBarTheme.softText.opacity(0.7))
                     }
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
     }
 
     private var archiveList: some View {
@@ -457,6 +505,12 @@ struct MenuBarView: View {
                 } label: {
                     Label("新增快捷录", systemImage: "plus")
                 }
+            }
+
+            Button {
+                onOpenJSONFormatter()
+            } label: {
+                Label("JSON 格式化", systemImage: "curlybraces")
             }
 
             Spacer()
@@ -559,6 +613,10 @@ struct MenuBarView: View {
         } else {
             selectedRequirementStatus = .developing
         }
+    }
+
+    private func notifyPreferredSize() {
+        onPreferredSizeChange(CGSize(width: Layout.panelWidth, height: preferredPanelHeight))
     }
 }
 

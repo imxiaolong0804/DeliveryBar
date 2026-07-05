@@ -102,7 +102,7 @@ struct RequirementEditorView: View {
                     EditorSection("描述") {
                         EditorTextField(
                             title: "需求描述",
-                            placeholder: "补充背景、范围或验收标准",
+                            placeholder: "补充背景、范围或测试要点",
                             text: $detail,
                             focusedField: $focusedField,
                             field: .detail,
@@ -559,9 +559,15 @@ private struct PrioritySelector: View {
                         selection = priority
                     } label: {
                         VStack(spacing: 2) {
-                            Text(priority.badgeTitle)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
+                            HStack(spacing: 4) {
+                                Text(priority.rankTitle)
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+
+                                Text(priority.badgeTitle)
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                            }
 
                             Text(priority.helperText)
                                 .font(.caption2)
@@ -603,14 +609,25 @@ private extension RequirementPriority {
         }
     }
 
+    var rankTitle: String {
+        switch self {
+        case .low:
+            "P2"
+        case .medium:
+            "P1"
+        case .high:
+            "P0"
+        }
+    }
+
     var helperText: String {
         switch self {
         case .low:
-            "可排期"
+            "低优先级"
         case .medium:
-            "正常"
+            "中优先级"
         case .high:
-            "优先"
+            "高优先级"
         }
     }
 

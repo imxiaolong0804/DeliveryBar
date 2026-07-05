@@ -26,7 +26,7 @@ struct RequirementRowView: View {
             HStack(alignment: .top, spacing: 8) {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(requirement.priority.tintColor)
-                    .frame(width: 4)
+                    .frame(width: requirement.priority.sideBarWidth)
                     .frame(maxHeight: .infinity)
                     .help(requirement.priority.badgeTitle)
 
@@ -41,6 +41,8 @@ struct RequirementRowView: View {
                     detailView
 
                     metadataRow
+
+                    nextStepRow
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -134,6 +136,49 @@ struct RequirementRowView: View {
     }
 
     @ViewBuilder
+    private var nextStepRow: some View {
+        if
+            let nextStatus = requirement.status.nextStatus,
+            let actionTitle = requirement.status.nextActionTitle,
+            let onChangeStatus
+        {
+            HStack(spacing: 6) {
+                Text("下一步")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(DeliveryBarTheme.softText)
+
+                Text(actionTitle)
+                    .font(.caption2)
+                    .foregroundStyle(DeliveryBarTheme.ink)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(DeliveryBarTheme.softText)
+
+                StatusPill(status: nextStatus)
+
+                Spacer()
+
+                Button(actionTitle) {
+                    onChangeStatus(nextStatus)
+                }
+                .font(.caption2)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.mini)
+                .tint(nextStatus.tintColor)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(0.30), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(nextStatus.tintColor.opacity(0.16))
+            }
+        }
+    }
+
+    @ViewBuilder
     private var statusPill: some View {
         if onChangeStatus != nil {
             Button {
@@ -188,7 +233,10 @@ struct RequirementRowView: View {
     }
 
     private func titleLabel(isLinked: Bool) -> some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            PriorityPill(priority: requirement.priority)
+                .layoutPriority(1)
+
             Text(requirement.title)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -274,6 +322,29 @@ private struct StatusPill: View {
     }
 }
 
+private struct PriorityPill: View {
+    let priority: RequirementPriority
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(priority.rankTitle)
+                .fontWeight(.bold)
+
+            Text(priority.badgeTitle)
+        }
+        .font(.caption2)
+        .foregroundStyle(priority.tintColor)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(priority.tintColor.opacity(priority.backgroundOpacity), in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(priority.tintColor.opacity(priority.strokeOpacity))
+        }
+        .help(priority.helperText)
+    }
+}
+
 private struct InfoPill: View {
     let text: String
     var tint: Color = DeliveryBarTheme.softText
@@ -305,25 +376,38 @@ private struct StatusChoiceStrip: View {
     let onSelect: (RequirementStatus) -> Void
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 5)], alignment: .leading, spacing: 5) {
-            ForEach(RequirementStatus.editableList) { status in
-                Button {
-                    onSelect(status)
-                } label: {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(status.tintColor)
-                            .frame(width: 5, height: 5)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("切换状态")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(DeliveryBarTheme.softText)
 
-                        Text(status.compactTitle)
-                            .lineLimit(1)
+            HStack(spacing: 4) {
+                ForEach(Array(RequirementStatus.editableList.enumerated()), id: \.element.id) { index, status in
+                    Button {
+                        onSelect(status)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(status.tintColor)
+                                .frame(width: 5, height: 5)
+
+                            Text(status.compactTitle)
+                                .lineLimit(1)
+                        }
+                        .font(.caption2)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
                     }
-                    .font(.caption2)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 3)
+                    .buttonStyle(.bordered)
+                    .tint(currentStatus == status ? status.tintColor : DeliveryBarTheme.muted)
+
+                    if index < RequirementStatus.editableList.count - 1 {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(DeliveryBarTheme.softText.opacity(0.72))
+                    }
                 }
-                .buttonStyle(.bordered)
-                .tint(currentStatus == status ? status.tintColor : DeliveryBarTheme.muted)
             }
         }
         .padding(.leading, 12)
@@ -340,7 +424,9 @@ extension RequirementStatus {
         case .developedNotDelivered:
             "未交付"
         case .waitingAcceptance:
-            "待验收"
+            "测试中"
+        case .waitingRelease:
+            "待上线"
         case .completed:
             "完成"
         case .archived:
@@ -358,6 +444,8 @@ extension RequirementStatus {
             Color(red: 0.78, green: 0.55, blue: 0.18)
         case .waitingAcceptance:
             Color(red: 0.70, green: 0.50, blue: 0.18)
+        case .waitingRelease:
+            Color(red: 0.58, green: 0.48, blue: 0.82)
         case .completed:
             DeliveryBarTheme.success
         case .archived:
@@ -370,11 +458,33 @@ private extension RequirementPriority {
     var badgeTitle: String {
         switch self {
         case .low:
-            "低优先级"
+            "低"
         case .medium:
-            "中优先级"
+            "中"
         case .high:
-            "高优先级"
+            "高"
+        }
+    }
+
+    var rankTitle: String {
+        switch self {
+        case .low:
+            "P2"
+        case .medium:
+            "P1"
+        case .high:
+            "P0"
+        }
+    }
+
+    var helperText: String {
+        switch self {
+        case .low:
+            "P2 低优先级"
+        case .medium:
+            "P1 中优先级"
+        case .high:
+            "P0 高优先级"
         }
     }
 
@@ -386,6 +496,39 @@ private extension RequirementPriority {
             DeliveryBarTheme.accent
         case .high:
             DeliveryBarTheme.danger
+        }
+    }
+
+    var sideBarWidth: CGFloat {
+        switch self {
+        case .low:
+            4
+        case .medium:
+            5
+        case .high:
+            7
+        }
+    }
+
+    var backgroundOpacity: Double {
+        switch self {
+        case .low:
+            0.10
+        case .medium:
+            0.14
+        case .high:
+            0.16
+        }
+    }
+
+    var strokeOpacity: Double {
+        switch self {
+        case .low:
+            0.18
+        case .medium:
+            0.26
+        case .high:
+            0.32
         }
     }
 }
