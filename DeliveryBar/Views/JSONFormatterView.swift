@@ -76,6 +76,7 @@ struct JSONFormatterView: View {
             footer
         }
         .frame(width: Layout.width, height: Layout.height)
+        .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
         .onChange(of: inputText) { _, newValue in
             JSONFormatterDraftStore.save(newValue)
@@ -180,7 +181,7 @@ struct JSONFormatterView: View {
         .labelStyle(.titleAndIcon)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .quinarySystemFill))
+        .background(DeliveryBarTheme.barBackground)
     }
 
     private var formatterContent: some View {
@@ -363,7 +364,7 @@ struct JSONFormatterView: View {
                 }
             }
         }
-        .background(Color(nsColor: .quinarySystemFill))
+        .background(DeliveryBarTheme.barBackground)
     }
 
     private func historyRow(_ history: JSONFormatHistory) -> some View {

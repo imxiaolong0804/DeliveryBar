@@ -245,6 +245,7 @@ struct MenuBarView: View {
             tabFooter
         }
         .frame(width: Layout.panelWidth, height: tabPanelHeight)
+        .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
     }
 
@@ -266,6 +267,7 @@ struct MenuBarView: View {
         .labelStyle(.titleAndIcon)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+        .background(DeliveryBarTheme.barBackground)
     }
 
     @ViewBuilder

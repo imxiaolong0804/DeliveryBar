@@ -134,6 +134,7 @@ struct QuickEntryEditorView: View {
             footer
         }
         .frame(width: 460, height: 420)
+        .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
         .onAppear {
             focusedField = .key

@@ -21,10 +21,23 @@ enum DeliveryBarTheme {
 
     static let cardBackground = Color(nsColor: .quaternarySystemFill)
     static let cardStroke = Color(nsColor: .separatorColor)
-    static let footerBackground = Color(nsColor: .quinarySystemFill)
+    static var barBackground: Color { Color(nsColor: .systemTeal).opacity(0.08) }
+    static var footerBackground: Color { barBackground }
     static let selectedBackground = accent.opacity(0.18)
 
-    static var panelBackground: Color { .clear }
+    static var panelBackground: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(nsColor: .windowBackgroundColor).opacity(0.74),
+                Color(nsColor: .systemGreen).opacity(0.08),
+                accent.opacity(0.07),
+                Color(nsColor: .systemTeal).opacity(0.12),
+                Color(nsColor: .controlBackgroundColor).opacity(0.68)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
     static func pillBackground(isSelected: Bool) -> Color {
         isSelected ? selectedBackground : Color(nsColor: .quinarySystemFill)
