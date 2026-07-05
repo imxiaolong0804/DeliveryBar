@@ -76,7 +76,6 @@ struct JSONFormatterView: View {
             footer
         }
         .frame(width: Layout.width, height: Layout.height)
-        .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
         .onChange(of: inputText) { _, newValue in
             JSONFormatterDraftStore.save(newValue)

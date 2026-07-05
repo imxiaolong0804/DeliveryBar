@@ -89,14 +89,14 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     private func makeMainPanel() -> DeliveryFloatingPanel {
         let panel = makePanel(size: Layout.mainDefaultSize)
-        panel.contentViewController = makeMainContent()
+        panel.contentView = makeContentView(hosting: makeMainContent(), material: .popover)
         return panel
     }
 
     private func makeJSONPanel() -> DeliveryFloatingPanel {
         let panel = makePanel(size: Layout.jsonSize)
         panel.title = "JSON 格式化"
-        panel.contentViewController = makeJSONContent()
+        panel.contentView = makeContentView(hosting: makeJSONContent(), material: .underWindowBackground)
         return panel
     }
 
@@ -131,11 +131,49 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         return hostingController
     }
 
+    private func makeContentView(
+        hosting hostingController: NSHostingController<AnyView>,
+        material: NSVisualEffectView.Material
+    ) -> NSView {
+        let effectView = NSVisualEffectView()
+        effectView.material = material
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.maskImage = cornerMask(radius: DeliveryBarTheme.Radius.panel)
+
+        let hostingView = hostingController.view
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+
+        effectView.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: effectView.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor)
+        ])
+
+        return effectView
+    }
+
+    private func cornerMask(radius: CGFloat) -> NSImage {
+        let size = CGSize(width: radius * 2 + 1, height: radius * 2 + 1)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
+    }
+
     private func rebuildJSONContent() {
         if let jsonHostingController {
             jsonHostingController.rootView = jsonRootView()
         } else if let jsonPanel {
-            jsonPanel.contentViewController = makeJSONContent()
+            jsonPanel.contentView = makeContentView(hosting: makeJSONContent(), material: .underWindowBackground)
         }
         setJSONPinned(false)
     }
@@ -152,7 +190,6 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
                 }
             )
             .modelContainer(modelContainer)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         )
     }
 
@@ -167,7 +204,6 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
                 }
             )
             .modelContainer(modelContainer)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         )
     }
 
@@ -179,6 +215,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         if panel.isVisible {
             positionMainPanel(panel, relativeTo: mainAnchorButton)
         }
+        panel.invalidateShadow()
     }
 
     private func installActivationObserver() {

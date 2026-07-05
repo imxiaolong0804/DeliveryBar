@@ -163,7 +163,6 @@ struct RequirementEditorView: View {
             footer
         }
         .frame(width: 460, height: 480)
-        .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
     }
 

@@ -48,7 +48,6 @@ struct SettingsView: View {
             width: showsNavigation ? Layout.standaloneWidth : Layout.embeddedWidth,
             height: showsNavigation ? Layout.standaloneHeight : Layout.embeddedHeight
         )
-        .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
         .clipped()
     }
