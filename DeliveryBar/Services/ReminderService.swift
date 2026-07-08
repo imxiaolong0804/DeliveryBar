@@ -11,7 +11,8 @@ enum ReminderService {
         remindersEnabled: Bool,
         now: Date = Date()
     ) -> String? {
-        guard remindersEnabled, requirement.status != .archived else {
+        // 已完成/已归档的需求不再提醒（否则完成但逾期的需求会一直被计入关注数）
+        guard remindersEnabled, requirement.status != .archived, requirement.status != .completed else {
             return nil
         }
 

@@ -45,14 +45,14 @@ private struct SelectablePillModifier: ViewModifier {
         guard let tint else {
             return DeliveryBarTheme.pillBackground(isSelected: isSelected)
         }
-        return isSelected ? tint.opacity(0.16) : DeliveryBarTheme.cardBackground
+        return isSelected ? tint.opacity(0.18) : DeliveryBarTheme.cardBackground
     }
 
     private var stroke: Color {
         guard let tint else {
             return DeliveryBarTheme.pillStroke(isSelected: isSelected)
         }
-        return tint.opacity(isSelected ? 0.55 : 0.18)
+        return tint.opacity(isSelected ? 0.55 : 0.24)
     }
 }
 

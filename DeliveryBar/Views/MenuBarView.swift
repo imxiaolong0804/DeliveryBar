@@ -61,6 +61,7 @@ struct MenuBarView: View {
     @State private var selectedTempDate = Calendar.current.startOfDay(for: Date())
     @State private var editorRequest: RequirementEditorRequest?
     @State private var quickEntryEditorRequest: QuickEntryEditorRequest?
+    @State private var showsAttentionPopover = false
 
     private var activeRequirements: [Requirement] {
         requirements.filter { !$0.isArchived }
@@ -102,10 +103,17 @@ struct MenuBarView: View {
         requirements.filter { $0.isArchived }
     }
 
+    private var attentionItems: [(requirement: Requirement, reason: String)] {
+        requirements.compactMap { requirement in
+            guard let reason = ReminderService.attentionReason(for: requirement, remindersEnabled: remindersEnabled) else {
+                return nil
+            }
+            return (requirement, reason)
+        }
+    }
+
     private var attentionCount: Int {
-        requirements.filter {
-            ReminderService.attentionReason(for: $0, remindersEnabled: remindersEnabled) != nil
-        }.count
+        attentionItems.count
     }
 
     private var selectedRequirements: [Requirement] {
@@ -319,16 +327,95 @@ struct MenuBarView: View {
             Spacer()
 
             if attentionCount > 0 {
-                Label("\(attentionCount)", systemImage: "exclamationmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.white)
-                    .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(DeliveryBarTheme.danger, in: Capsule())
+                Button {
+                    showsAttentionPopover.toggle()
+                } label: {
+                    Label("\(attentionCount)", systemImage: "exclamationmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(DeliveryBarTheme.danger, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("逾期、今天到期或长期未推进的需求数，点击查看明细")
+                .popover(isPresented: $showsAttentionPopover, arrowEdge: .bottom) {
+                    attentionListPopover
+                }
             }
         }
         .padding(12)
+    }
+
+    private var attentionListPopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("需要关注的需求")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(DeliveryBarTheme.ink)
+
+            Text("逾期 / 今天到期，或在当前阶段停留过久")
+                .font(.caption2)
+                .foregroundStyle(DeliveryBarTheme.softText)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(attentionItems, id: \.requirement.id) { item in
+                        attentionRow(item.requirement, reason: item.reason)
+                    }
+                }
+            }
+            .frame(maxHeight: 260)
+        }
+        .padding(12)
+        .frame(width: 320)
+    }
+
+    private func attentionRow(_ requirement: Requirement, reason: String) -> some View {
+        Button {
+            showsAttentionPopover = false
+            currentTab = .requirements
+            if RequirementStatus.mainList.contains(requirement.status) {
+                selectedRequirementStatus = requirement.status
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(requirement.priority.rankTitle)
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(requirement.priority.tintColor)
+
+                    Text(requirement.title)
+                        .font(.caption)
+                        .foregroundStyle(DeliveryBarTheme.ink)
+                        .lineLimit(1)
+
+                    Spacer()
+                }
+
+                HStack(spacing: 6) {
+                    Text(requirement.status.compactTitle)
+                        .font(.caption2)
+                        .foregroundStyle(requirement.status.tintColor)
+
+                    Text(reason)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(DeliveryBarTheme.danger)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(DeliveryBarTheme.danger.opacity(0.10), in: Capsule())
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .deliveryCard(padding: 8)
+            .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
+        }
+        .buttonStyle(.plain)
     }
 
     private var summaryText: String {

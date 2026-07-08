@@ -166,7 +166,7 @@ struct RequirementRowView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .background(Color(nsColor: .quinarySystemFill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(DeliveryBarTheme.quietFill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(nextStatus.tintColor.opacity(0.16))
@@ -200,14 +200,14 @@ struct RequirementRowView: View {
 
     private var rowBackground: Color {
         if attentionReason != nil {
-            return DeliveryBarTheme.danger.opacity(0.08)
+            return DeliveryBarTheme.attentionWash
         }
 
         switch requirement.priority {
         case .high:
-            return DeliveryBarTheme.danger.opacity(0.07)
+            return DeliveryBarTheme.priorityHighWash
         case .medium:
-            return DeliveryBarTheme.accent.opacity(0.08)
+            return DeliveryBarTheme.priorityMediumWash
         case .low:
             return DeliveryBarTheme.cardBackground
         }
@@ -310,10 +310,10 @@ private struct StatusPill: View {
         .foregroundStyle(status.tintColor)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(status.tintColor.opacity(0.12), in: Capsule())
+        .background(status.tintColor.opacity(0.16), in: Capsule())
         .overlay {
             Capsule()
-                .stroke(status.tintColor.opacity(0.22))
+                .stroke(status.tintColor.opacity(0.28))
         }
     }
 }
@@ -358,12 +358,12 @@ private struct InfoPill: View {
             .background(backgroundColor, in: Capsule())
             .overlay {
                 Capsule()
-                    .stroke(tint.opacity(isEmphasized ? 0.20 : 0.08))
+                    .stroke(tint.opacity(isEmphasized ? 0.24 : 0.12))
             }
     }
 
     private var backgroundColor: Color {
-        isEmphasized ? tint.opacity(0.10) : Color(nsColor: .quinarySystemFill)
+        isEmphasized ? tint.opacity(0.14) : DeliveryBarTheme.quietFill
     }
 }
 

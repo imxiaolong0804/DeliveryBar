@@ -51,8 +51,11 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         let panel = mainPanel ?? makeMainPanel()
         mainPanel = panel
 
+        panel.layoutIfNeeded()
         positionMainPanel(panel, relativeTo: button)
         show(panel)
+        // 首次显示时内容尺寸可能在 show 过程中才落定，补一次定位避免面板脱离状态栏
+        positionMainPanel(panel, relativeTo: button)
     }
 
     func showJSONFormatter() {
@@ -89,6 +92,8 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     private func makeMainPanel() -> DeliveryFloatingPanel {
         let panel = makePanel(size: Layout.mainDefaultSize)
+        // 先持有引用再挂内容：SwiftUI onAppear 会立刻上报首选尺寸，此时 resizeMainPanel 需要能拿到 panel
+        mainPanel = panel
         panel.contentView = makeContentView(hosting: makeMainContent(), material: .popover)
         return panel
     }
