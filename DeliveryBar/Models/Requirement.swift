@@ -143,8 +143,6 @@ final class Requirement {
     var dueDate: Date?
     var completedAt: Date?
     var archivedAt: Date?
-    var lastRemindedAt: Date?
-    var reminderMutedUntil: Date?
 
     init(
         id: UUID = UUID(),
@@ -161,9 +159,7 @@ final class Requirement {
         statusChangedAt: Date = Date(),
         dueDate: Date? = nil,
         completedAt: Date? = nil,
-        archivedAt: Date? = nil,
-        lastRemindedAt: Date? = nil,
-        reminderMutedUntil: Date? = nil
+        archivedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -180,8 +176,6 @@ final class Requirement {
         self.dueDate = dueDate
         self.completedAt = completedAt
         self.archivedAt = archivedAt
-        self.lastRemindedAt = lastRemindedAt
-        self.reminderMutedUntil = reminderMutedUntil
     }
 
     var status: RequirementStatus {
@@ -214,6 +208,13 @@ final class Requirement {
 
     var isArchived: Bool {
         status == .archived
+    }
+
+    /// 列表搜索：query 需为已 lowercased 的非空串
+    func matches(_ query: String) -> Bool {
+        [title, detail, note, link, owner, tester ?? ""].contains {
+            $0.lowercased().contains(query)
+        }
     }
 
     func updateStatus(_ newStatus: RequirementStatus) {

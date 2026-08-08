@@ -66,17 +66,17 @@ final class DeliveryBarAppDelegate: NSObject, NSApplicationDelegate {
         let container = Self.makeModelContainer()
         modelContainer = container
 
-        performLaunchMaintenance(using: container)
+        MaintenanceService.run(in: ModelContext(container))
 
         let panelController = FloatingPanelController(modelContainer: container)
         let statusBarController = StatusBarController(panelController: panelController, modelContainer: container)
         let hotKeyService = HotKeyService()
 
-        hotKeyService.register(.mainBar) { [weak statusBarController] in
-            statusBarController?.toggleMainPanel()
-        }
         hotKeyService.register(.jsonFormatter) { [weak panelController] in
-            panelController?.showJSONFormatter()
+            panelController?.toggleJSONFormatter()
+        }
+        hotKeyService.register(.newMemo) { [weak panelController] in
+            panelController?.showMemoWindow(compose: true)
         }
 
         self.panelController = panelController
@@ -99,42 +99,37 @@ final class DeliveryBarAppDelegate: NSObject, NSApplicationDelegate {
             PersonProfile.self,
             QuickEntry.self,
             JSONFormatHistory.self,
+            Memo.self,
+            MemoAttachment.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+        if let container = try? ModelContainer(for: schema, configurations: [modelConfiguration]) {
+            return container
         }
+
+        // 打不开一般意味着模型变更无法自动迁移。把旧库改名留档后用空库继续启动，
+        // 数据还能从备份里捞，总好过 app 永远起不来。
+        archiveStore(at: modelConfiguration.url)
+
+        if let container = try? ModelContainer(for: schema, configurations: [modelConfiguration]) {
+            return container
+        }
+
+        // 连磁盘都写不了，退到内存库：本次会话不落盘，但工具仍然可用
+        let memoryConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try! ModelContainer(for: schema, configurations: [memoryConfiguration])
     }
 
-    private func performLaunchMaintenance(using container: ModelContainer) {
-        let context = ModelContext(container)
+    private static func archiveStore(at storeURL: URL) {
+        let fileManager = FileManager.default
+        let suffix = ".backup-\(Int(Date().timeIntervalSince1970))"
 
-        do {
-            let requirements = try context.fetch(FetchDescriptor<Requirement>())
-            let legacyRequirements = requirements.filter { $0.status == .developedNotDelivered }
-            legacyRequirements.forEach {
-                $0.statusRaw = RequirementStatus.waitingAcceptance.rawValue
-            }
-
-            let temporaryTasks = try context.fetch(FetchDescriptor<TemporaryTask>())
-            let calendar = Calendar.current
-            let today = calendar.startOfDay(for: Date())
-            let cutoffDate = calendar.date(byAdding: .day, value: -6, to: today) ?? today
-            temporaryTasks
-                .filter { task in
-                    calendar.startOfDay(for: task.taskDate) < cutoffDate
-                        && (task.category == .log || task.isCompleted)
-                }
-                .forEach { context.delete($0) }
-
-            if context.hasChanges {
-                try context.save()
-            }
-        } catch {
-            assertionFailure("Failed to perform launch maintenance: \(error)")
+        // SQLite 的 -shm / -wal 边车文件要一起挪走，否则新库会读到旧的预写日志
+        for sidecar in ["", "-shm", "-wal"] {
+            let source = URL(fileURLWithPath: storeURL.path + sidecar)
+            guard fileManager.fileExists(atPath: source.path) else { continue }
+            try? fileManager.moveItem(at: source, to: URL(fileURLWithPath: storeURL.path + suffix + sidecar))
         }
     }
 }

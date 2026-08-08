@@ -69,8 +69,45 @@ struct RequirementRowView: View {
                 }
             }
         }
-        .deliveryCard(padding: 10, stroke: rowStroke, background: rowBackground)
+        .deliveryCard(padding: 10)
         .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
+        .contextMenu { copyMenu }
+    }
+
+    @ViewBuilder
+    private var copyMenu: some View {
+        Button("复制标题") { Clipboard.copy(requirement.title) }
+
+        if !requirement.link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Button("复制链接") { Clipboard.copy(requirement.link) }
+        }
+
+        if !requirement.detail.isEmpty {
+            Button("复制描述") { Clipboard.copy(requirement.detail) }
+        }
+
+        Divider()
+
+        Button("复制全部信息") { Clipboard.copy(fullCopyText) }
+    }
+
+    private var fullCopyText: String {
+        var lines = ["\(requirement.priority.rankTitle) \(requirement.title)"]
+        lines.append("状态：\(requirement.status.compactTitle)")
+        lines.append("PM：\(displayPM) / 测试：\(displayTester)")
+        if let dueDate = requirement.dueDate {
+            lines.append("预计交付：\(dueDate.formatted(.dateTime.year().month().day()))")
+        }
+        if !requirement.detail.isEmpty {
+            lines.append("描述：\(requirement.detail)")
+        }
+        if !requirement.note.isEmpty {
+            lines.append("备注：\(requirement.note)")
+        }
+        if !requirement.link.isEmpty {
+            lines.append("链接：\(requirement.link)")
+        }
+        return lines.joined(separator: "\n")
     }
 
     @ViewBuilder
@@ -91,7 +128,7 @@ struct RequirementRowView: View {
                 Button("恢复", action: onRestore)
             }
         }
-        .font(.caption2)
+        .font(DeliveryBarTheme.Typography.caption)
         .buttonStyle(.borderless)
         .fixedSize()
     }
@@ -102,33 +139,60 @@ struct RequirementRowView: View {
                 Text(requirement.detail)
                     .foregroundStyle(DeliveryBarTheme.softText)
                     .lineLimit(2)
+                    .textSelection(.enabled)
             } else {
                 Text("暂无描述")
                     .foregroundStyle(DeliveryBarTheme.softText.opacity(0.64))
                     .lineLimit(1)
             }
         }
-        .font(.caption)
+        .font(DeliveryBarTheme.Typography.caption)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// 人员/更新时间可以被截断，到期与提醒不行——它们才是这一行的重点
     private var metadataRow: some View {
         HStack(spacing: 6) {
             statusPill
-            InfoPill(text: "PM \(displayPM)")
-            InfoPill(text: "测试 \(displayTester)")
-            InfoPill(text: DateUtils.relativeUpdateText(for: requirement.updatedAt))
 
-            if let dueDate = requirement.dueDate {
-                InfoPill(text: DateUtils.dueText(for: dueDate))
+            Text(peopleSummary)
+                .font(DeliveryBarTheme.Typography.caption)
+                .foregroundStyle(DeliveryBarTheme.softText)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .textSelection(.enabled)
+
+            Spacer(minLength: 0)
+
+            if let dueText {
+                Text(dueText)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.softText)
+                    .fixedSize()
             }
 
             if let attentionReason {
-                InfoPill(text: attentionReason, tint: DeliveryBarTheme.danger, isEmphasized: true)
-                    .layoutPriority(1)
+                Text(attentionReason)
+                    .font(DeliveryBarTheme.Typography.captionStrong)
+                    .foregroundStyle(DeliveryBarTheme.danger)
+                    .fixedSize()
             }
         }
-        .lineLimit(1)
+    }
+
+    private var peopleSummary: String {
+        [
+            "PM \(displayPM)",
+            "测试 \(displayTester)",
+            DateUtils.relativeUpdateText(for: requirement.updatedAt)
+        ].joined(separator: " · ")
+    }
+
+    /// 逾期 / 今天到期已经由右侧红色提醒承载，这里不重复一遍
+    private var dueText: String? {
+        guard let dueDate = requirement.dueDate else { return nil }
+        let text = DateUtils.dueText(for: dueDate)
+        return text == attentionReason ? nil : text
     }
 
     @ViewBuilder
@@ -140,12 +204,11 @@ struct RequirementRowView: View {
         {
             HStack(spacing: 6) {
                 Text("下一步")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
+                    .font(DeliveryBarTheme.Typography.captionStrong)
                     .foregroundStyle(DeliveryBarTheme.softText)
 
                 Text(actionTitle)
-                    .font(.caption2)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.ink)
 
                 Image(systemName: "arrow.right")
@@ -159,18 +222,14 @@ struct RequirementRowView: View {
                 Button(actionTitle) {
                     onChangeStatus(nextStatus)
                 }
-                .font(.caption2)
+                .font(DeliveryBarTheme.Typography.caption)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.mini)
-                .tint(nextStatus.tintColor)
+                .tint(DeliveryBarTheme.accent)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(DeliveryBarTheme.quietFill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(nextStatus.tintColor.opacity(0.16))
-            }
         }
     }
 
@@ -191,28 +250,6 @@ struct RequirementRowView: View {
         }
     }
 
-    private var rowStroke: Color {
-        if attentionReason != nil {
-            return DeliveryBarTheme.danger.opacity(0.36)
-        }
-        return requirement.priority.tintColor.opacity(0.28)
-    }
-
-    private var rowBackground: Color {
-        if attentionReason != nil {
-            return DeliveryBarTheme.attentionWash
-        }
-
-        switch requirement.priority {
-        case .high:
-            return DeliveryBarTheme.priorityHighWash
-        case .medium:
-            return DeliveryBarTheme.priorityMediumWash
-        case .low:
-            return DeliveryBarTheme.cardBackground
-        }
-    }
-
     @ViewBuilder
     private var titleView: some View {
         if let requirementURL {
@@ -225,6 +262,7 @@ struct RequirementRowView: View {
             .help(requirement.link)
         } else {
             titleLabel(isLinked: false)
+                .textSelection(.enabled)
         }
     }
 
@@ -243,8 +281,7 @@ struct RequirementRowView: View {
                     .imageScale(.small)
             }
         }
-        .font(.subheadline)
-        .fontWeight(.medium)
+        .font(DeliveryBarTheme.Typography.captionStrong)
         .foregroundStyle(isLinked ? DeliveryBarTheme.accent : DeliveryBarTheme.ink)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -269,32 +306,7 @@ struct RequirementRowView: View {
 
 }
 
-private struct DeleteConfirmationStrip: View {
-    let onConfirm: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(DeliveryBarTheme.danger)
-
-            Text("确认删除？")
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            Spacer()
-
-            Button("取消", action: onCancel)
-                .font(.caption2)
-
-            Button("删除", role: .destructive, action: onConfirm)
-                .font(.caption2)
-        }
-        .buttonStyle(.borderless)
-        .padding(.leading, 12)
-    }
-}
-
+/// 状态胶囊：中性底色，仅用小圆点承载状态色
 private struct StatusPill: View {
     let status: RequirementStatus
 
@@ -306,14 +318,14 @@ private struct StatusPill: View {
 
             Text(status.compactTitle)
         }
-        .font(.caption2)
-        .foregroundStyle(status.tintColor)
+        .font(DeliveryBarTheme.Typography.caption)
+        .foregroundStyle(DeliveryBarTheme.softText)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(status.tintColor.opacity(0.16), in: Capsule())
+        .background(DeliveryBarTheme.quietFill, in: Capsule())
         .overlay {
             Capsule()
-                .stroke(status.tintColor.opacity(0.28))
+                .stroke(DeliveryBarTheme.cardStroke)
         }
     }
 }
@@ -322,48 +334,17 @@ private struct PriorityPill: View {
     let priority: RequirementPriority
 
     var body: some View {
-        HStack(spacing: 4) {
-            Text(priority.rankTitle)
-                .fontWeight(.bold)
-
-            Text(priority.badgeTitle)
-        }
-        .font(.caption2)
-        .foregroundStyle(priority.tintColor)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(priority.tintColor.opacity(priority.backgroundOpacity), in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(priority.tintColor.opacity(priority.strokeOpacity))
-        }
-        .help("\(priority.rankTitle) \(priority.helperText)")
-    }
-}
-
-private struct InfoPill: View {
-    let text: String
-    var tint: Color = DeliveryBarTheme.softText
-    var isEmphasized = false
-
-    var body: some View {
-        Text(text)
-            .font(.caption2)
-            .fontWeight(isEmphasized ? .semibold : .regular)
-            .foregroundStyle(tint)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .padding(.horizontal, 7)
+        Text(priority.rankTitle)
+            .font(DeliveryBarTheme.Typography.captionStrong)
+            .foregroundStyle(priority.tintColor)
+            .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(backgroundColor, in: Capsule())
+            .background(DeliveryBarTheme.quietFill, in: Capsule())
             .overlay {
                 Capsule()
-                    .stroke(tint.opacity(isEmphasized ? 0.24 : 0.12))
+                    .stroke(DeliveryBarTheme.cardStroke)
             }
-    }
-
-    private var backgroundColor: Color {
-        isEmphasized ? tint.opacity(0.14) : DeliveryBarTheme.quietFill
+            .help("\(priority.rankTitle) \(priority.helperText)")
     }
 }
 
@@ -374,8 +355,7 @@ private struct StatusChoiceStrip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("切换状态")
-                .font(.caption2)
-                .fontWeight(.semibold)
+                .font(DeliveryBarTheme.Typography.captionStrong)
                 .foregroundStyle(DeliveryBarTheme.softText)
 
             HStack(spacing: 4) {
@@ -391,12 +371,12 @@ private struct StatusChoiceStrip: View {
                             Text(status.compactTitle)
                                 .lineLimit(1)
                         }
-                        .font(.caption2)
+                        .font(DeliveryBarTheme.Typography.caption)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
-                    .tint(currentStatus == status ? status.tintColor : DeliveryBarTheme.muted)
+                    .tint(currentStatus == status ? DeliveryBarTheme.accent : DeliveryBarTheme.muted)
 
                     if index < RequirementStatus.editableList.count - 1 {
                         Image(systemName: "chevron.right")
@@ -484,12 +464,13 @@ extension RequirementPriority {
         }
     }
 
+    /// 极简配色：红色只留给 P0，其余优先级用灰阶区分
     var tintColor: Color {
         switch self {
         case .low:
             DeliveryBarTheme.muted
         case .medium:
-            DeliveryBarTheme.accent
+            Color(nsColor: .secondaryLabelColor)
         case .high:
             DeliveryBarTheme.danger
         }
@@ -503,28 +484,6 @@ extension RequirementPriority {
             5
         case .high:
             7
-        }
-    }
-
-    var backgroundOpacity: Double {
-        switch self {
-        case .low:
-            0.10
-        case .medium:
-            0.14
-        case .high:
-            0.16
-        }
-    }
-
-    var strokeOpacity: Double {
-        switch self {
-        case .low:
-            0.18
-        case .medium:
-            0.26
-        case .high:
-            0.32
         }
     }
 }

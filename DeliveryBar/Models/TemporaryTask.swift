@@ -20,24 +20,6 @@ enum TemporaryCategory: String, Codable, CaseIterable, Identifiable {
             "日志"
         }
     }
-
-    var systemImage: String {
-        switch self {
-        case .todo:
-            "checkmark.circle"
-        case .log:
-            "doc.text"
-        }
-    }
-
-    var emptyHint: String {
-        switch self {
-        case .todo:
-            "暂无待办"
-        case .log:
-            "暂无日志"
-        }
-    }
 }
 
 @Model
@@ -77,6 +59,11 @@ final class TemporaryTask {
             typeRaw = newValue.rawValue
             touch()
         }
+    }
+
+    /// 右键「复制内容」用：有备注时带上备注
+    var copyText: String {
+        note.isEmpty ? title : "\(title)\n\(note)"
     }
 
     func updateCompletion(_ isCompleted: Bool) {

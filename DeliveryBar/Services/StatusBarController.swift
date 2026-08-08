@@ -7,10 +7,15 @@ import AppKit
 import SwiftData
 
 final class StatusBarController: NSObject {
+    /// 兜底轮询间隔。跨天、到期阈值这类「时间到了」的变化没有保存事件可依赖，
+    /// 但都是天级别的，不需要每分钟醒一次。
+    private static let fallbackRefreshInterval: TimeInterval = 300
+
     private let statusItem: NSStatusItem
     private let panelController: FloatingPanelController
     private let modelContainer: ModelContainer
     private var badgeTimer: Timer?
+    private var saveObserver: NSObjectProtocol?
 
     init(panelController: FloatingPanelController, modelContainer: ModelContainer) {
         self.panelController = panelController
@@ -19,13 +24,29 @@ final class StatusBarController: NSObject {
         super.init()
         configureStatusItem()
         refreshBadge()
-        badgeTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+
+        // 面板里改完需求立刻反映到角标，不用等下一次轮询
+        saveObserver = NotificationCenter.default.addObserver(
+            forName: ModelContext.didSave,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshBadge()
+        }
+
+        badgeTimer = Timer.scheduledTimer(
+            withTimeInterval: Self.fallbackRefreshInterval,
+            repeats: true
+        ) { [weak self] _ in
             self?.refreshBadge()
         }
     }
 
     deinit {
         badgeTimer?.invalidate()
+        if let saveObserver {
+            NotificationCenter.default.removeObserver(saveObserver)
+        }
         NSStatusBar.system.removeStatusItem(statusItem)
     }
 
@@ -51,7 +72,7 @@ final class StatusBarController: NSObject {
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        button.toolTip = "\(DeliveryBarTheme.appName)（⌘⇧D）"
+        button.toolTip = DeliveryBarTheme.appName
     }
 
     private static func makeStatusImage() -> NSImage? {

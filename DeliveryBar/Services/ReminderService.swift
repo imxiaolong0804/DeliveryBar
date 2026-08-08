@@ -16,10 +16,6 @@ enum ReminderService {
             return nil
         }
 
-        if let mutedUntil = requirement.reminderMutedUntil, mutedUntil > now {
-            return nil
-        }
-
         if let dueDate = requirement.dueDate {
             let dueText = DateUtils.dueText(for: dueDate, now: now)
             if dueText.hasPrefix("已逾期") || dueText == "今天到期" {

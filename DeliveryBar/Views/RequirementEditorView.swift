@@ -65,7 +65,7 @@ struct RequirementEditorView: View {
                             field: .title
                         )
 
-                        PersonNameField(
+                        SuggestionTextField(
                             title: "PM",
                             placeholder: "可选",
                             text: $owner,
@@ -74,7 +74,7 @@ struct RequirementEditorView: View {
                             field: .owner
                         )
 
-                        PersonNameField(
+                        SuggestionTextField(
                             title: "测试人员",
                             placeholder: "可选",
                             text: $tester,
@@ -123,7 +123,7 @@ struct RequirementEditorView: View {
 
                     if let validationMessage {
                         Text(validationMessage)
-                            .font(.caption)
+                            .font(DeliveryBarTheme.Typography.caption)
                             .foregroundStyle(DeliveryBarTheme.danger)
                             .padding(.horizontal, 4)
                     }
@@ -133,7 +133,7 @@ struct RequirementEditorView: View {
                             if isConfirmingDelete {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("确认删除这个需求？")
-                                        .font(.subheadline)
+                                        .font(DeliveryBarTheme.Typography.caption)
                                         .foregroundStyle(DeliveryBarTheme.danger)
 
                                     HStack {
@@ -178,7 +178,7 @@ struct RequirementEditorView: View {
             .tint(DeliveryBarTheme.accent)
 
             Text(requirement == nil ? "新增需求" : "编辑需求")
-                .font(.headline)
+                .font(DeliveryBarTheme.Typography.windowTitle)
                 .foregroundStyle(DeliveryBarTheme.ink)
 
             Spacer()
@@ -188,9 +188,11 @@ struct RequirementEditorView: View {
 
     private var footer: some View {
         HStack {
+            // cancelAction 让 Esc 先被编辑页消费（回列表），而不是直接收掉整个面板
             Button("取消") {
                 onCancel()
             }
+            .keyboardShortcut(.cancelAction)
 
             Spacer()
 
@@ -241,7 +243,7 @@ struct RequirementEditorView: View {
             modelContext.insert(newRequirement)
         }
 
-        saveContext()
+        modelContext.saveChanges()
         onComplete()
     }
 
@@ -274,17 +276,9 @@ struct RequirementEditorView: View {
     private func delete() {
         if let requirement {
             modelContext.delete(requirement)
-            saveContext()
+            modelContext.saveChanges()
         }
         onComplete()
-    }
-
-    private func saveContext() {
-        do {
-            try modelContext.save()
-        } catch {
-            assertionFailure("Failed to save model context: \(error)")
-        }
     }
 }
 
@@ -295,140 +289,6 @@ private enum EditorField: Hashable {
     case detail
     case note
     case link
-}
-
-private struct EditorSection<Content: View>: View {
-    let title: String
-    let content: Content
-
-    init(_ title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            VStack(alignment: .leading, spacing: 10) {
-                content
-            }
-            .deliveryCard(padding: 10)
-        }
-    }
-}
-
-private struct EditorTextField: View {
-    let title: String
-    let placeholder: String
-    @Binding var text: String
-    let focusedField: FocusState<EditorField?>.Binding
-    let field: EditorField
-    var axis: Axis = .horizontal
-    var lineLimit: ClosedRange<Int>? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            if let lineLimit {
-                TextField(placeholder, text: $text, axis: axis)
-                    .focused(focusedField, equals: field)
-                    .lineLimit(lineLimit)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusedField.wrappedValue = field
-                    }
-            } else {
-                TextField(placeholder, text: $text, axis: axis)
-                    .focused(focusedField, equals: field)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusedField.wrappedValue = field
-                    }
-            }
-        }
-    }
-}
-
-private struct PersonNameField: View {
-    let title: String
-    let placeholder: String
-    @Binding var text: String
-    let suggestions: [String]
-    let focusedField: FocusState<EditorField?>.Binding
-    let field: EditorField
-    @State private var isShowingSuggestions = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    TextField(placeholder, text: $text)
-                        .focused(focusedField, equals: field)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            focusedField.wrappedValue = field
-                        }
-
-                    Button {
-                        withAnimation(.snappy(duration: 0.16)) {
-                            isShowingSuggestions.toggle()
-                        }
-                    } label: {
-                        Image(systemName: isShowingSuggestions ? "chevron.up.circle" : "chevron.down.circle")
-                            .font(.system(size: 15))
-                    }
-                    .buttonStyle(.borderless)
-                    .frame(width: 28)
-                }
-
-                if isShowingSuggestions {
-                    suggestionChips
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var suggestionChips: some View {
-        if suggestions.isEmpty {
-            Text("暂无常用姓名")
-                .font(.caption2)
-                .foregroundStyle(DeliveryBarTheme.softText)
-        } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 6)], alignment: .leading, spacing: 6) {
-                ForEach(suggestions, id: \.self) { suggestion in
-                    Button(suggestion) {
-                        text = suggestion
-                        focusedField.wrappedValue = field
-                        withAnimation(.snappy(duration: 0.16)) {
-                            isShowingSuggestions = false
-                        }
-                    }
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .buttonStyle(.bordered)
-                    .tint(DeliveryBarTheme.accent)
-                    .controlSize(.small)
-                }
-            }
-        }
-    }
 }
 
 private struct DueDateSelector: View {
@@ -457,7 +317,7 @@ private struct DueDateSelector: View {
                     .buttonStyle(.bordered)
 
                     Text(dueDate.formatted(.dateTime.year().month().day()))
-                        .font(.subheadline)
+                        .font(DeliveryBarTheme.Typography.caption)
                         .frame(maxWidth: .infinity)
 
                     Button {
@@ -497,7 +357,7 @@ private struct StatusSelector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("需求状态")
-                .font(.caption)
+                .font(DeliveryBarTheme.Typography.caption)
                 .foregroundStyle(DeliveryBarTheme.softText)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 8)], alignment: .leading, spacing: 8) {
@@ -514,9 +374,9 @@ private struct StatusSelector: View {
                             Text(status.title)
                                 .lineLimit(1)
                         }
-                        .font(.caption)
-                        .foregroundStyle(isSelected ? status.tintColor : DeliveryBarTheme.softText)
-                        .selectablePill(isSelected: isSelected, tint: status.tintColor, verticalPadding: 6)
+                        .font(DeliveryBarTheme.Typography.caption)
+                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
+                        .selectablePill(isSelected: isSelected, verticalPadding: 6)
                     }
                     .buttonStyle(.plain)
                 }
@@ -532,7 +392,7 @@ private struct PrioritySelector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("优先级")
-                .font(.caption)
+                .font(DeliveryBarTheme.Typography.caption)
                 .foregroundStyle(DeliveryBarTheme.softText)
 
             HStack(spacing: 8) {
@@ -543,19 +403,17 @@ private struct PrioritySelector: View {
                         VStack(spacing: 2) {
                             HStack(spacing: 4) {
                                 Text(priority.rankTitle)
-                                    .font(.caption)
-                                    .fontWeight(.bold)
+                                    .font(DeliveryBarTheme.Typography.captionStrong)
 
                                 Text(priority.badgeTitle)
-                                    .font(.subheadline)
-                                    .fontWeight(.bold)
+                                    .font(DeliveryBarTheme.Typography.captionStrong)
                             }
 
                             Text(priority.helperText)
-                                .font(.caption2)
+                                .font(DeliveryBarTheme.Typography.caption)
                                 .foregroundStyle(DeliveryBarTheme.softText)
                         }
-                        .selectablePill(isSelected: selection == priority, tint: priority.tintColor, verticalPadding: 8)
+                        .selectablePill(isSelected: selection == priority, verticalPadding: 8)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(priority.tintColor)

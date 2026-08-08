@@ -25,12 +25,14 @@ struct JSONDiffView: View {
     let hasCompared: Bool
 
     @AppStorage("jsonDiffResultPaneRatio") private var resultPaneRatio = 0.45
+    /// 和格式化模式共用一份字号设置，A- / A+ 调一次两个模式都跟着变
+    @AppStorage("jsonEditorFontSize") private var editorFontSize = Double(JSONSyntaxTheme.defaultFontSize)
 
     var body: some View {
         GeometryReader { proxy in
             splitContent(availableHeight: proxy.size.height)
         }
-        .padding(12)
+        .padding(DeliveryBarTheme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -50,10 +52,10 @@ struct JSONDiffView: View {
 
             JSONPaneSplitHandle(
                 resultPaneRatio: $resultPaneRatio,
-                paneHeight: paneHeight,
+                paneLength: paneHeight,
                 minRatio: Layout.minResultPaneRatio,
                 maxRatio: Layout.maxResultPaneRatio,
-                handleWidth: Layout.splitHandleWidth
+                handleLength: Layout.splitHandleWidth
             )
             .frame(maxWidth: .infinity)
             .frame(height: Layout.splitHandleHeight)
@@ -66,45 +68,49 @@ struct JSONDiffView: View {
     }
 
     private func editorSection(title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(DeliveryBarTheme.ink)
+                    .font(DeliveryBarTheme.Typography.captionStrong)
+                    .foregroundStyle(DeliveryBarTheme.softText)
 
                 Spacer()
 
                 Text("\(text.wrappedValue.count) 字符")
-                    .font(.caption)
-                    .foregroundStyle(DeliveryBarTheme.softText)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.muted)
+                    .monospacedDigit()
             }
+            .padding(.horizontal, DeliveryBarTheme.Spacing.lg)
+            .padding(.vertical, DeliveryBarTheme.Spacing.md)
 
             SearchableJSONTextView(
                 text: text,
                 isEditable: true,
                 searchRequest: nil,
                 searchResult: .constant(nil),
-                editingState: nil
+                editingState: nil,
+                fontSize: CGFloat(editorFontSize)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .deliveryCard(padding: 6, background: DeliveryBarTheme.cardBackground)
         }
+        // 比对时两边是平等的，底色用同一档，不像格式化那样分主次
+        .background(Color.dynamic(light: .white.withAlphaComponent(0.4), dark: .black.withAlphaComponent(0.22)))
+        .clipShape(RoundedRectangle(cornerRadius: DeliveryBarTheme.Radius.card, style: .continuous))
     }
 
     private var resultsPane: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text("差异")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(DeliveryBarTheme.ink)
+                    .font(DeliveryBarTheme.Typography.captionStrong)
+                    .foregroundStyle(DeliveryBarTheme.softText)
 
                 Spacer()
 
                 if hasCompared, leftError == nil, rightError == nil, !entries.isEmpty {
-                    Text("共 \(entries.count) 处差异 · 新增 \(count(of: .added)) · 缺失 \(count(of: .removed)) · 不同 \(count(of: .changed))")
-                        .font(.caption)
+                    Text("共 \(entries.count) 处 · 新增 \(count(of: .added)) · 缺失 \(count(of: .removed)) · 不同 \(count(of: .changed))")
+                        .font(DeliveryBarTheme.Typography.caption)
                         .foregroundStyle(DeliveryBarTheme.softText)
                 }
             }
@@ -129,34 +135,34 @@ struct JSONDiffView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let leftError {
                 Label("左侧：\(leftError)", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let rightError {
                 Label("右侧：\(rightError)", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
         }
-        .padding(6)
+        .padding(DeliveryBarTheme.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var identicalContent: some View {
         Label("两边一致", systemImage: "checkmark.circle.fill")
-            .font(.subheadline)
+            .font(DeliveryBarTheme.Typography.caption)
             .foregroundStyle(DeliveryBarTheme.success)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func placeholder(_ text: String) -> some View {
         Text(text)
-            .font(.caption)
+            .font(DeliveryBarTheme.Typography.caption)
             .foregroundStyle(DeliveryBarTheme.softText)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -168,7 +174,7 @@ struct JSONDiffView: View {
                     diffRow(entry)
                 }
             }
-            .padding(4)
+            .padding(DeliveryBarTheme.Spacing.xs)
         }
     }
 
@@ -176,10 +182,9 @@ struct JSONDiffView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text(entry.kind.title)
-                    .font(.caption2)
-                    .fontWeight(.semibold)
+                    .font(DeliveryBarTheme.Typography.captionStrong)
                     .foregroundStyle(entry.kind.tintColor)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, DeliveryBarTheme.Spacing.sm)
                     .padding(.vertical, 2)
                     .background(entry.kind.tintColor.opacity(0.16), in: Capsule())
                     .overlay {
@@ -188,7 +193,7 @@ struct JSONDiffView: View {
                     }
 
                 Text(entry.path)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(DeliveryBarTheme.Typography.monoStrong)
                     .foregroundStyle(DeliveryBarTheme.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -201,6 +206,21 @@ struct JSONDiffView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .deliveryCard(padding: 8)
+        .contextMenu {
+            Button("复制路径") { Clipboard.copy(entry.path) }
+            Button("复制该差异") { Clipboard.copy(diffCopyText(entry)) }
+        }
+    }
+
+    private func diffCopyText(_ entry: JSONDiffEntry) -> String {
+        switch entry.kind {
+        case .added:
+            "\(entry.kind.title) \(entry.path)：\(entry.rightText ?? "")"
+        case .removed:
+            "\(entry.kind.title) \(entry.path)：\(entry.leftText ?? "")"
+        case .changed:
+            "\(entry.kind.title) \(entry.path)：\(entry.leftText ?? "") → \(entry.rightText ?? "")"
+        }
     }
 
     @ViewBuilder
@@ -225,7 +245,7 @@ struct JSONDiffView: View {
 
     private func valueText(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 11, design: .monospaced))
+            .font(DeliveryBarTheme.Typography.mono)
             .foregroundStyle(color)
             .lineLimit(2)
             .truncationMode(.tail)

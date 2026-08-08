@@ -10,14 +10,15 @@ import SwiftUI
 
 struct JSONFormatterView: View {
     private enum Layout {
-        static let width: CGFloat = 820
-        static let height: CGFloat = 620
+        // 窗口可缩放，这里只给下限，实际尺寸跟随窗口
+        static let minWidth: CGFloat = 720
+        static let minHeight: CGFloat = 460
         static let historyWidth: CGFloat = 230
-        static let editorMinHeight: CGFloat = 96
-        static let splitHandleHeight: CGFloat = 16
-        static let splitHandleWidth: CGFloat = 52
-        static let minResultPaneRatio = 0.18
-        static let maxResultPaneRatio = 0.82
+        static let editorMinWidth: CGFloat = 180
+        static let splitHandleThickness: CGFloat = 14
+        static let splitHandleLength: CGFloat = 40
+        static let minResultPaneRatio = 0.25
+        static let maxResultPaneRatio = 0.85
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -31,8 +32,10 @@ struct JSONFormatterView: View {
     @State private var errorMessage: String?
     @State private var isPinned = false
     @State private var showsHistory = false
+    @State private var showsSearch = false
     @State private var copiedOutput = false
     @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
     @State private var searchTarget: JSONSearchTarget = .output
     @State private var searchStatus: String?
     @State private var inputSearchRequest: JSONTextSearchRequest?
@@ -40,7 +43,11 @@ struct JSONFormatterView: View {
     @State private var inputSearchResult: JSONTextSearchResult?
     @State private var outputSearchResult: JSONTextSearchResult?
     @StateObject private var inputEditingState = JSONTextEditingState()
-    @AppStorage("jsonFormatterResultPaneRatio") private var resultPaneRatio = 0.5
+    @StateObject private var outputEditingState = JSONTextEditingState()
+    // 换了 key：语义从"结果区高度占比"变成"宽度占比"，沿用旧值会让分栏位置莫名其妙。
+    // 默认 0.62 而不是对半分——结果区才是要看的东西，输入区够粘贴就行。
+    @AppStorage("jsonFormatterResultPaneWidthRatio") private var resultPaneRatio = 0.62
+    @AppStorage("jsonEditorFontSize") private var editorFontSize = Double(JSONSyntaxTheme.defaultFontSize)
 
     @State private var mode: JSONToolMode = .format
     @State private var diffLeftText = ""
@@ -66,9 +73,9 @@ struct JSONFormatterView: View {
             Divider()
 
             if mode == .format {
-                searchBar
-
-                Divider()
+                if showsSearch {
+                    searchBar
+                }
 
                 HStack(spacing: 0) {
                     formatterContent
@@ -98,11 +105,11 @@ struct JSONFormatterView: View {
                 diffFooter
             }
         }
-        .frame(width: Layout.width, height: Layout.height)
+        .frame(minWidth: Layout.minWidth, maxWidth: .infinity, minHeight: Layout.minHeight, maxHeight: .infinity)
         .background(DeliveryBarTheme.panelBackground)
         .tint(DeliveryBarTheme.accent)
         .onChange(of: inputText) { _, newValue in
-            JSONFormatterDraftStore.save(newValue)
+            JSONFormatterDraftStore.scheduleSave(newValue)
         }
         .onChange(of: isPinned) { _, newValue in
             onPinnedChange(newValue)
@@ -119,26 +126,16 @@ struct JSONFormatterView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "curlybraces")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(DeliveryBarTheme.inkSoft)
+                .frame(width: 26, height: 26)
+                .background(DeliveryBarTheme.quietFill, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            Text(mode.title)
+                .font(DeliveryBarTheme.Typography.windowTitle)
                 .foregroundStyle(DeliveryBarTheme.ink)
-                .frame(width: 32, height: 32)
-                .background(DeliveryBarTheme.accentWash, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(DeliveryBarTheme.ink.opacity(0.14))
-                }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(mode.title)
-                    .font(.headline)
-                    .foregroundStyle(DeliveryBarTheme.ink)
-
-                Text(mode.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(DeliveryBarTheme.softText)
-            }
 
             Spacer()
 
@@ -148,45 +145,64 @@ struct JSONFormatterView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 132)
-
-            Toggle("置顶", isOn: $isPinned)
-                .toggleStyle(.switch)
-                .font(.caption)
+            .labelsHidden()
+            .frame(width: 124)
 
             if mode == .format {
-                Button {
-                    showsHistory.toggle()
-                } label: {
-                    Label("历史", systemImage: "clock.arrow.circlepath")
+                ChromeButton(
+                    systemImage: "magnifyingglass",
+                    isActive: showsSearch,
+                    shortcut: "f",
+                    help: "搜索 (⌘F)"
+                ) {
+                    toggleSearch()
                 }
-                .buttonStyle(.bordered)
+
+                ChromeButton(
+                    systemImage: "clock.arrow.circlepath",
+                    isActive: showsHistory,
+                    help: "格式化历史"
+                ) {
+                    showsHistory.toggle()
+                }
             }
 
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
+            ChromeButton(
+                systemImage: isPinned ? "pin.fill" : "pin",
+                isActive: isPinned,
+                help: "窗口保持在最前"
+            ) {
+                isPinned.toggle()
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("关闭")
+
+            ChromeButton(systemImage: "xmark", help: "关闭") {
+                onClose()
+            }
         }
-        .labelStyle(.titleAndIcon)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, DeliveryBarTheme.Spacing.lg)
+        .padding(.vertical, DeliveryBarTheme.Spacing.md)
     }
 
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
+                .font(.system(size: 11))
                 .foregroundStyle(DeliveryBarTheme.softText)
 
-            TextField("搜索 JSON 内容", text: $searchText)
+            TextField("搜索 JSON 内容，回车跳到下一处", text: $searchText)
                 .textFieldStyle(.plain)
+                .font(DeliveryBarTheme.Typography.callout)
+                .focused($isSearchFocused)
                 .onSubmit {
                     performSearch()
                 }
+
+            if let searchStatus {
+                Text(searchStatus)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.softText)
+                    .lineLimit(1)
+            }
 
             Picker("", selection: $searchTarget) {
                 ForEach(JSONSearchTarget.allCases) { target in
@@ -194,188 +210,186 @@ struct JSONFormatterView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 116)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 96)
 
-            Button {
-                performSearch()
-            } label: {
-                Label("查找", systemImage: "arrow.down")
-            }
-            .disabled(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            if let searchStatus {
-                Text(searchStatus)
-                    .font(.caption)
-                    .foregroundStyle(DeliveryBarTheme.softText)
-                    .lineLimit(1)
-                    .frame(width: 126, alignment: .trailing)
+            ChromeButton(systemImage: "xmark", help: "关闭搜索") {
+                toggleSearch()
             }
         }
-        .labelStyle(.titleAndIcon)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(DeliveryBarTheme.barBackground)
+        .padding(.horizontal, DeliveryBarTheme.Spacing.lg)
+        .padding(.bottom, DeliveryBarTheme.Spacing.sm)
+    }
+
+    private func toggleSearch() {
+        withAnimation(.snappy(duration: 0.16)) {
+            showsSearch.toggle()
+        }
+
+        guard showsSearch else {
+            searchStatus = nil
+            return
+        }
+
+        // 输入框这一帧才挂上去，等一个渲染回合再抢焦点
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
     }
 
     private var formatterContent: some View {
         GeometryReader { proxy in
-            splitEditorContent(availableHeight: proxy.size.height)
+            splitEditorContent(availableWidth: proxy.size.width)
         }
-        .padding(12)
+        .padding(DeliveryBarTheme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func splitEditorContent(availableHeight: CGFloat) -> some View {
-        let paneHeight = max(1, availableHeight - Layout.splitHandleHeight)
-        let minPaneHeight = min(Layout.editorMinHeight, paneHeight / 2)
-        let rawResultHeight = paneHeight * CGFloat(clampedResultPaneRatio(resultPaneRatio))
-        let resultHeight = min(max(rawResultHeight, minPaneHeight), paneHeight - minPaneHeight)
-        let inputHeight = paneHeight - resultHeight
+    /// 左右分栏而不是上下：JSON 是逐字段对照着看的，横向并排才能一眼对上，
+    /// 上下叠着要来回滚。宽度默认偏向结果区。
+    private func splitEditorContent(availableWidth: CGFloat) -> some View {
+        let paneWidth = max(1, availableWidth - Layout.splitHandleThickness)
+        let minPaneWidth = min(Layout.editorMinWidth, paneWidth / 2)
+        let rawResultWidth = paneWidth * CGFloat(clampedResultPaneRatio(resultPaneRatio))
+        let resultWidth = min(max(rawResultWidth, minPaneWidth), paneWidth - minPaneWidth)
+        let inputWidth = paneWidth - resultWidth
 
-        return VStack(spacing: 0) {
-            inputEditor
-                .frame(height: inputHeight)
+        return HStack(spacing: 0) {
+            inputPane
+                .frame(width: inputWidth)
 
-            splitHandle(paneHeight: paneHeight)
+            splitHandle(paneWidth: paneWidth)
 
-            outputEditor
-                .frame(height: resultHeight)
+            outputPane
+                .frame(width: resultWidth)
         }
     }
 
-    private var inputEditor: some View {
-        editorSection(
-            title: "输入",
-            value: inputText,
-            background: DeliveryBarTheme.cardBackground
-        ) {
+    private var inputPane: some View {
+        editorPane(title: "原始内容", isPrimary: false, characterCount: inputText.count) {
+            EmptyView()
+        } content: {
             SearchableJSONTextView(
                 text: $inputText,
                 isEditable: true,
                 searchRequest: inputSearchRequest,
                 searchResult: $inputSearchResult,
-                editingState: inputEditingState
+                editingState: inputEditingState,
+                fontSize: CGFloat(editorFontSize)
             )
         }
     }
 
-    private var outputEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(DeliveryBarTheme.danger)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            editorSection(
-                title: "结果",
-                value: outputText,
-                background: DeliveryBarTheme.cardBackground
-            ) {
-                SearchableJSONTextView(
-                    text: .constant(outputText),
-                    isEditable: false,
-                    searchRequest: outputSearchRequest,
-                    searchResult: $outputSearchResult,
-                    editingState: nil
-                )
+    private var outputPane: some View {
+        editorPane(title: "格式化结果", isPrimary: true, characterCount: outputText.count) {
+            fontSizeControls
+        } content: {
+            SearchableJSONTextView(
+                text: $outputText,
+                isEditable: true,
+                searchRequest: outputSearchRequest,
+                searchResult: $outputSearchResult,
+                editingState: outputEditingState,
+                fontSize: CGFloat(editorFontSize)
+            )
+            .overlay {
+                if outputText.isEmpty {
+                    Text("格式化后的结果显示在这里")
+                        .font(DeliveryBarTheme.Typography.caption)
+                        .foregroundStyle(DeliveryBarTheme.muted)
+                        .allowsHitTesting(false)
+                }
             }
         }
     }
 
-    private func splitHandle(paneHeight: CGFloat) -> some View {
-        JSONPaneSplitHandle(
-            resultPaneRatio: $resultPaneRatio,
-            paneHeight: paneHeight,
-            minRatio: Layout.minResultPaneRatio,
-            maxRatio: Layout.maxResultPaneRatio,
-            handleWidth: Layout.splitHandleWidth
-        )
-        .frame(maxWidth: .infinity)
-        .frame(height: Layout.splitHandleHeight)
-        .help("拖动调整输入和结果区域大小")
-        .accessibilityLabel("调整输入和结果区域大小")
+    private var fontSizeControls: some View {
+        HStack(spacing: 2) {
+            ChromeButton(systemImage: "textformat.size.smaller", help: "缩小字号") {
+                editorFontSize = max(Double(JSONSyntaxTheme.minimumFontSize), editorFontSize - 1)
+            }
+
+            ChromeButton(systemImage: "textformat.size.larger", help: "放大字号") {
+                editorFontSize = min(Double(JSONSyntaxTheme.maximumFontSize), editorFontSize + 1)
+            }
+        }
     }
 
-    private func editorSection<Content: View>(
+    private func splitHandle(paneWidth: CGFloat) -> some View {
+        JSONPaneSplitHandle(
+            resultPaneRatio: $resultPaneRatio,
+            paneLength: paneWidth,
+            minRatio: Layout.minResultPaneRatio,
+            maxRatio: Layout.maxResultPaneRatio,
+            handleLength: Layout.splitHandleLength,
+            isHorizontal: true
+        )
+        .frame(width: Layout.splitHandleThickness)
+        .frame(maxHeight: .infinity)
+        .help("拖动调整两栏宽度")
+        .accessibilityLabel("调整两栏宽度")
+    }
+
+    /// 两栏的主次靠三件事拉开：宽度、标题层级、底色深浅。
+    /// 结果区标题是窗口级字号、底色更实；输入区退成小标题、底色更淡。
+    private func editorPane<Accessory: View, Content: View>(
         title: String,
-        value: String,
-        background: Color,
+        isPrimary: Bool,
+        characterCount: Int,
+        @ViewBuilder accessory: () -> Accessory,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            editorHeader(title: title, value: value)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: DeliveryBarTheme.Spacing.md) {
+                Text(title)
+                    .font(isPrimary ? DeliveryBarTheme.Typography.windowTitle : DeliveryBarTheme.Typography.captionStrong)
+                    .foregroundStyle(isPrimary ? DeliveryBarTheme.ink : DeliveryBarTheme.softText)
+                    .lineLimit(1)
+
+                Spacer(minLength: DeliveryBarTheme.Spacing.xs)
+
+                Text("\(characterCount) 字符")
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.muted)
+                    .monospacedDigit()
+                    .lineLimit(1)
+
+                accessory()
+            }
+            .padding(.horizontal, DeliveryBarTheme.Spacing.lg)
+            .padding(.vertical, DeliveryBarTheme.Spacing.md)
 
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .deliveryCard(padding: 6, background: background)
         }
+        .background(editorBackground(isPrimary: isPrimary))
+        .clipShape(RoundedRectangle(cornerRadius: DeliveryBarTheme.Radius.card, style: .continuous))
     }
 
-    private func editorHeader(title: String, value: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(DeliveryBarTheme.ink)
-
-            Spacer()
-
-            if title == "输入" {
-                undoRedoButtons
-            }
-
-            Text("\(value.count) 字符")
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-        }
-    }
-
-    private var undoRedoButtons: some View {
-        HStack(spacing: 4) {
-            Button {
-                inputEditingState.undo()
-            } label: {
-                Image(systemName: "arrow.uturn.backward")
-            }
-            .buttonStyle(.borderless)
-            .disabled(!inputEditingState.canUndo)
-            .keyboardShortcut("z", modifiers: .command)
-            .help("撤销 (⌘Z)")
-            .accessibilityLabel("撤销")
-
-            Button {
-                inputEditingState.redo()
-            } label: {
-                Image(systemName: "arrow.uturn.forward")
-            }
-            .buttonStyle(.borderless)
-            .disabled(!inputEditingState.canRedo)
-            .keyboardShortcut("z", modifiers: [.command, .shift])
-            .help("重做 (⇧⌘Z)")
-            .accessibilityLabel("重做")
-        }
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(DeliveryBarTheme.softText)
+    /// 给代码区垫一层底，让它从毛玻璃面板上"凹"下去——参考图里那种纯净代码区的观感
+    /// 靠的就是这层底。结果区比输入区更实一档。
+    private func editorBackground(isPrimary: Bool) -> Color {
+        .dynamic(
+            light: .white.withAlphaComponent(isPrimary ? 0.55 : 0.28),
+            dark: .black.withAlphaComponent(isPrimary ? 0.30 : 0.16)
+        )
     }
 
     private var historyContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("历史")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(DeliveryBarTheme.Typography.captionStrong)
                     .foregroundStyle(DeliveryBarTheme.ink)
 
                 Spacer()
 
                 Text("\(histories.count)")
-                    .font(.caption)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.softText)
             }
-            .padding(10)
+            .padding(DeliveryBarTheme.Spacing.lg)
 
             Divider()
 
@@ -393,11 +407,11 @@ struct JSONFormatterView: View {
                             historyRow(history)
                         }
                     }
-                    .padding(8)
+                    .padding(DeliveryBarTheme.Spacing.md)
                 }
             }
         }
-        .background(DeliveryBarTheme.barBackground)
+        .background(DeliveryBarTheme.quietFill)
     }
 
     private func historyRow(_ history: JSONFormatHistory) -> some View {
@@ -406,12 +420,12 @@ struct JSONFormatterView: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(history.summary)
-                    .font(.caption)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.ink)
                     .lineLimit(3)
 
                 Text(DateUtils.relativeUpdateText(for: history.updatedAt))
-                    .font(.caption2)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.softText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -419,77 +433,80 @@ struct JSONFormatterView: View {
             .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("复制原文") { Clipboard.copy(history.rawJSON) }
+            Button("复制格式化结果") { Clipboard.copy(history.formattedJSON) }
+        }
     }
 
+    /// 一排按钮全是图标加文字的话视觉重量一样重，看不出主次。
+    /// 这里只留「格式化」一个主按钮，其余降成文字。
     private var footer: some View {
-        HStack(spacing: 8) {
-            Button {
+        HStack(spacing: 10) {
+            Button("清空") {
                 clear()
-            } label: {
-                Label("清空", systemImage: "trash")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(DeliveryBarTheme.softText)
+
+            // 报错放这儿而不是结果区上方：那里一出现就会把编辑器往下顶，布局跟着跳
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.danger)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(errorMessage)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            Button {
+            Button("压缩") {
                 compress()
-            } label: {
-                Label("压缩", systemImage: "arrow.down.forward.and.arrow.up.backward")
             }
             .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            Button {
+            Button(copiedOutput ? "已复制" : "复制结果") {
+                copyOutput()
+            }
+            .disabled(outputText.isEmpty)
+
+            Button("格式化") {
                 format()
-            } label: {
-                Label("格式化", systemImage: "wand.and.sparkles")
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
             .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            Button {
-                copyOutput()
-            } label: {
-                Label(copiedOutput ? "已复制" : "复制结果", systemImage: copiedOutput ? "checkmark" : "doc.on.doc")
-            }
-            .disabled(outputText.isEmpty)
         }
         .labelStyle(.titleAndIcon)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(DeliveryBarTheme.footerBackground)
+        .padding(.horizontal, DeliveryBarTheme.Spacing.lg)
+        .padding(.vertical, DeliveryBarTheme.Spacing.md)
     }
 
     private var diffFooter: some View {
-        HStack(spacing: 8) {
-            Button {
+        HStack(spacing: 10) {
+            Button("清空") {
                 clearDiff()
-            } label: {
-                Label("清空", systemImage: "trash")
             }
+            .buttonStyle(.borderless)
+            .foregroundStyle(DeliveryBarTheme.softText)
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            Button {
+            Button("交换左右") {
                 swapDiffSides()
-            } label: {
-                Label("交换左右", systemImage: "arrow.left.arrow.right")
             }
             .disabled(diffLeftText.isEmpty && diffRightText.isEmpty)
 
-            Button {
+            Button("比对") {
                 runDiff()
-            } label: {
-                Label("比对", systemImage: "square.split.2x1")
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
             .disabled(!canRunDiff)
         }
-        .labelStyle(.titleAndIcon)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(DeliveryBarTheme.footerBackground)
+        .padding(.horizontal, DeliveryBarTheme.Spacing.lg)
+        .padding(.vertical, DeliveryBarTheme.Spacing.md)
     }
 
     private var canRunDiff: Bool {
@@ -538,22 +555,22 @@ struct JSONFormatterView: View {
     }
 
     private func format() {
-        transformJSON(options: [.prettyPrinted, .withoutEscapingSlashes])
+        transformJSON(prettyPrinted: true)
     }
 
     private func compress() {
-        transformJSON(options: [.withoutEscapingSlashes])
+        transformJSON(prettyPrinted: false)
     }
 
-    private func transformJSON(options: JSONSerialization.WritingOptions) {
+    private func transformJSON(prettyPrinted: Bool) {
         do {
-            let result = try JSONFormatterEngine.transform(inputText, options: options)
-            outputText = result
+            let result = try JSONFormatterEngine.transform(inputText, prettyPrinted: prettyPrinted)
+            replaceOutputText(result, actionName: prettyPrinted ? "格式化" : "压缩")
             errorMessage = nil
             searchTarget = .output
             saveHistory(formattedJSON: result)
         } catch {
-            outputText = ""
+            replaceOutputText("", actionName: "清空结果")
             errorMessage = JSONFormatterEngine.message(for: error)
         }
     }
@@ -591,7 +608,7 @@ struct JSONFormatterView: View {
 
     private func restore(_ history: JSONFormatHistory) {
         replaceInputText(history.rawJSON, actionName: "恢复历史")
-        outputText = history.formattedJSON
+        replaceOutputText(history.formattedJSON, actionName: "恢复历史")
         errorMessage = nil
         searchTarget = .output
         showsHistory = false
@@ -600,7 +617,7 @@ struct JSONFormatterView: View {
 
     private func clear() {
         replaceInputText("", actionName: "清空")
-        outputText = ""
+        replaceOutputText("", actionName: "清空")
         errorMessage = nil
         copiedOutput = false
         JSONFormatterDraftStore.clear()
@@ -609,6 +626,14 @@ struct JSONFormatterView: View {
     private func replaceInputText(_ text: String, actionName: String) {
         if !inputEditingState.replaceAllText(with: text, actionName: actionName) {
             inputText = text
+        }
+    }
+
+    /// 走编辑状态而不是直接改 @State：这样程序写入也进撤销栈，
+    /// 用户手动改过结果后再点格式化，⌘Z 能回到改之前
+    private func replaceOutputText(_ text: String, actionName: String) {
+        if !outputEditingState.replaceAllText(with: text, actionName: actionName, caretAtStart: true) {
+            outputText = text
         }
     }
 
@@ -645,9 +670,7 @@ struct JSONFormatterView: View {
 
     private func copyOutput() {
         guard !outputText.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(outputText, forType: .string)
+        Clipboard.copy(outputText)
         copiedOutput = true
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
@@ -679,15 +702,6 @@ private enum JSONToolMode: String, CaseIterable, Identifiable {
             "JSON 比对"
         }
     }
-
-    var subtitle: String {
-        switch self {
-        case .format:
-            "格式化、压缩并保存最近 50 条记录"
-        case .compare:
-            "结构化比对两段 JSON 的差异"
-        }
-    }
 }
 
 private enum JSONSearchTarget: String, CaseIterable, Identifiable {
@@ -710,6 +724,19 @@ private enum JSONFormatterDraftStore {
     private static let textKey = "jsonFormatterDraftText"
     private static let savedAtKey = "jsonFormatterDraftSavedAt"
     private static let lifetime: TimeInterval = 60
+    private static let writeDelay: TimeInterval = 0.6
+
+    private static var pendingWrite: DispatchWorkItem?
+
+    /// 输入区每敲一个字符都会触发。大段 JSON 直接写 UserDefaults 会卡输入，
+    /// 所以停手 0.6 秒才真正落盘。
+    static func scheduleSave(_ text: String) {
+        pendingWrite?.cancel()
+
+        let write = DispatchWorkItem { save(text) }
+        pendingWrite = write
+        DispatchQueue.main.asyncAfter(deadline: .now() + writeDelay, execute: write)
+    }
 
     static func loadFreshDraft(now: Date = Date()) -> String? {
         let defaults = UserDefaults.standard
@@ -724,12 +751,14 @@ private enum JSONFormatterDraftStore {
     }
 
     static func save(_ text: String, now: Date = Date()) {
+        pendingWrite?.cancel()
         let defaults = UserDefaults.standard
         defaults.set(text, forKey: textKey)
         defaults.set(now, forKey: savedAtKey)
     }
 
     static func clear() {
+        pendingWrite?.cancel()
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: textKey)
         defaults.removeObject(forKey: savedAtKey)

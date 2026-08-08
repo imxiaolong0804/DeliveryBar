@@ -7,34 +7,36 @@ import Carbon.HIToolbox
 import Foundation
 
 final class HotKeyService {
+    /// 主面板不再占全局快捷键——它就在菜单栏上，点一下就开，
+    /// 没必要为此长期霸占一个系统级组合键。
     enum Shortcut: CaseIterable {
-        case mainBar
         case jsonFormatter
+        case newMemo
 
         var id: UInt32 {
             switch self {
-            case .mainBar:
-                1
             case .jsonFormatter:
                 2
+            case .newMemo:
+                3
             }
         }
 
         var displayName: String {
             switch self {
-            case .mainBar:
-                "⌘⇧D"
             case .jsonFormatter:
                 "⌘⇧J"
+            case .newMemo:
+                "⌘⇧N"
             }
         }
 
         var keyCode: UInt32 {
             switch self {
-            case .mainBar:
-                UInt32(kVK_ANSI_D)
             case .jsonFormatter:
                 UInt32(kVK_ANSI_J)
+            case .newMemo:
+                UInt32(kVK_ANSI_N)
             }
         }
 
@@ -44,19 +46,19 @@ final class HotKeyService {
 
         var registeredKey: String {
             switch self {
-            case .mainBar:
-                "mainHotKeyRegistered"
             case .jsonFormatter:
                 "jsonHotKeyRegistered"
+            case .newMemo:
+                "memoHotKeyRegistered"
             }
         }
 
         var statusKey: String {
             switch self {
-            case .mainBar:
-                "mainHotKeyStatusText"
             case .jsonFormatter:
                 "jsonHotKeyStatusText"
+            case .newMemo:
+                "memoHotKeyStatusText"
             }
         }
     }

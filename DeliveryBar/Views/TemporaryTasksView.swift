@@ -11,237 +11,292 @@ struct TemporaryTasksView: View {
     @Query(sort: \TemporaryTask.updatedAt, order: .reverse) private var temporaryTasks: [TemporaryTask]
 
     let listHeight: CGFloat
+    let weekListHeight: CGFloat
     @Binding var selectedDate: Date
+    @Binding var viewMode: LogViewMode
+    @Binding var noteExpanded: Bool
 
     @State private var title = ""
     @State private var note = ""
-    @State private var category: TemporaryCategory = .log
     @State private var validationMessage: String?
+    @State private var didCopyReport = false
 
     private var calendar: Calendar { .current }
 
-    private var hasDraftInput: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var visibleDates: [Date] {
-        let today = calendar.startOfDay(for: Date())
-        return (0..<7).compactMap { offset in
-            calendar.date(byAdding: .day, value: -offset, to: today)
-        }
-    }
+    // MARK: - Day mode
 
     private var selectedTasks: [TemporaryTask] {
         temporaryTasks
             .filter { task in
-                if calendar.isDate(task.taskDate, inSameDayAs: selectedDate) {
-                    return true
-                }
-                if task.category == .todo && !task.isCompleted
-                    && calendar.startOfDay(for: task.taskDate) < calendar.startOfDay(for: selectedDate) {
-                    return true
-                }
-                return false
+                task.category == .log && calendar.isDate(task.taskDate, inSameDayAs: selectedDate)
             }
-    }
-
-    private var todoTasks: [TemporaryTask] {
-        selectedTasks
-            .filter { $0.category == .todo }
-            .sorted { lhs, rhs in
-                if lhs.isCompleted != rhs.isCompleted { return !lhs.isCompleted }
-                return lhs.updatedAt > rhs.updatedAt
-            }
-    }
-
-    private var logTasks: [TemporaryTask] {
-        selectedTasks
-            .filter { $0.category == .log }
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    private var summaryText: String {
-        if selectedTasks.isEmpty {
-            return "当天没有记录"
+    // MARK: - Week mode
+
+    private var groupedLogs: [(date: Date, logs: [TemporaryTask])] {
+        let today = calendar.startOfDay(for: Date())
+        guard let sevenDaysAgo = calendar.date(byAdding: .day, value: -6, to: today) else { return [] }
+
+        let weekLogs = temporaryTasks.filter {
+            $0.category == .log && $0.taskDate >= sevenDaysAgo && $0.taskDate <= today
         }
-        let unfinishedCount = todoTasks.filter { !$0.isCompleted }.count
-        let parts: [String] = []
-        var result = ""
-        if !todoTasks.isEmpty {
-            if unfinishedCount > 0 {
-                result = "\(unfinishedCount) 个待办"
-            } else {
-                result = "\(todoTasks.count) 个待办已完成"
+
+        let grouped = Dictionary(grouping: weekLogs) { calendar.startOfDay(for: $0.taskDate) }
+        return grouped.keys
+            .sorted(by: >)
+            .map { date in
+                (date: date, logs: grouped[date]!.sorted { $0.updatedAt > $1.updatedAt })
             }
-        }
-        if !logTasks.isEmpty {
-            if !result.isEmpty { result += "，" }
-            result += "\(logTasks.count) 条日志"
-        }
-        return result.isEmpty ? "当天没有记录" : result
     }
+
+    private var weekSummaryText: String {
+        let total = groupedLogs.reduce(0) { $0 + $1.logs.count }
+        if total == 0 { return "近7天暂无日志" }
+        return "近7天 \(total) 条 · \(groupedLogs.count) 天"
+    }
+
+    // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            dateSelector
-
-            Divider()
-
-            addForm
-                .padding(10)
-
-            Divider()
-
-            taskList
+            if viewMode == .day {
+                dayToolbar
+                Divider()
+                addForm
+                Divider()
+                dayLogList
+            } else {
+                weekToolbar
+                Divider()
+                weekLogList
+            }
         }
         .onAppear {
             ensureSelectedDateInRange()
-            resetCategoryToLogIfPossible()
-            cleanupExpiredTasks()
         }
     }
 
-    private var dateSelector: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("临时事项")
-                        .font(.headline)
+    // MARK: - Toolbars
 
-                    Text(summaryText)
-                        .font(.caption)
-                        .foregroundStyle(DeliveryBarTheme.softText)
-                }
+    private var dayToolbar: some View {
+        HStack(spacing: 4) {
+            DayStripSelector(selectedDate: $selectedDate)
 
-                Spacer()
-            }
+            Spacer(minLength: 8)
 
-            HStack(spacing: 6) {
-                ForEach(visibleDates, id: \.self) { date in
-                    Button {
-                        selectedDate = date
-                    } label: {
-                        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
-                        VStack(spacing: 2) {
-                            Text(dayTitle(for: date))
-                                .font(.caption)
-                                .fontWeight(.semibold)
-
-                            Text(monthDayText(for: date))
-                                .font(.caption2)
-                                .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
-                        }
-                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                        .selectablePill(isSelected: isSelected, verticalPadding: 6)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            modeToggle
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
+
+    private var weekToolbar: some View {
+        HStack(spacing: 8) {
+            Text(weekSummaryText)
+                .font(DeliveryBarTheme.Typography.caption)
+                .foregroundStyle(DeliveryBarTheme.softText)
+
+            Spacer()
+
+            Button {
+                copyWeeklyReport()
+            } label: {
+                Label(
+                    didCopyReport ? "已复制" : "复制周报",
+                    systemImage: didCopyReport ? "checkmark" : "doc.on.doc"
+                )
+                .font(DeliveryBarTheme.Typography.caption)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(didCopyReport ? DeliveryBarTheme.success : DeliveryBarTheme.accent)
+            .disabled(groupedLogs.isEmpty)
+
+            modeToggle
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var modeToggle: some View {
+        Picker("", selection: $viewMode) {
+            Text("日").tag(LogViewMode.day)
+            Text("周").tag(LogViewMode.week)
+        }
+        .pickerStyle(.segmented)
+        .controlSize(.small)
+        .frame(width: 72)
+        .labelsHidden()
+    }
+
+    // MARK: - Add Form
 
     private var addForm: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                CategoryPicker(selection: $category)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(DeliveryBarTheme.accent)
 
-                TextField(
-                    category == .todo ? "今天要完成的事项" : "记录当天的事情，好写日报",
-                    text: $title
-                )
-                .textFieldStyle(.roundedBorder)
+                TextField("记录当天的事情，回车提交", text: $title)
+                    .textFieldStyle(.plain)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .onSubmit(addTask)
 
                 Button {
-                    addTask()
+                    noteExpanded.toggle()
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "text.alignleft")
+                        .font(DeliveryBarTheme.Typography.caption)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(DeliveryBarTheme.accent)
+                .buttonStyle(.borderless)
+                .foregroundStyle(noteExpanded ? DeliveryBarTheme.accent : DeliveryBarTheme.softText)
+                .help("添加备注")
             }
 
-            TextField("备注，可选", text: $note, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...3)
+            if noteExpanded {
+                TextField("备注，可选", text: $note, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .lineLimit(1...3)
+                    .onSubmit(addTask)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             if let validationMessage {
                 Text(validationMessage)
-                    .font(.caption)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.danger)
             }
         }
-        .deliveryCard(padding: 10)
+        .animation(.snappy(duration: 0.16), value: noteExpanded)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
     }
 
-    private var taskList: some View {
+    // MARK: - Day Log List
+
+    private var dayLogList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 6) {
+            LazyVStack(alignment: .leading, spacing: 2) {
                 if selectedTasks.isEmpty {
-                    ContentUnavailableView(
-                        "暂无记录",
-                        systemImage: "tray",
-                        description: Text("记录当天的待办事项和工作日志。")
-                    )
-                    .padding(.vertical, 28)
+                    emptyState(hint: "在上方记录做过的事，写日报更轻松")
                 } else {
-                    if !todoTasks.isEmpty {
-                        sectionHeader(title: "待办", count: todoTasks.filter { !$0.isCompleted }.count, systemImage: "checkmark.circle")
-
-                        ForEach(todoTasks) { task in
-                            TodoTaskRow(task: task) {
-                                task.updateCompletion(!task.isCompleted)
-                                saveContext()
-                            } onDelete: {
-                                modelContext.delete(task)
-                                saveContext()
-                            }
-                        }
-                    }
-
-                    if !logTasks.isEmpty {
-                        sectionHeader(title: "日志", count: nil, systemImage: "doc.text")
-                            .padding(.top, todoTasks.isEmpty ? 0 : 4)
-
-                        ForEach(logTasks) { task in
-                            LogTaskRow(task: task) {
-                                modelContext.delete(task)
-                                saveContext()
-                            }
+                    ForEach(selectedTasks) { task in
+                        LogRow(task: task) {
+                            modelContext.delete(task)
+                            modelContext.saveChanges()
                         }
                     }
                 }
             }
-            .padding(8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(height: listHeight)
         .clipped()
     }
 
-    private func sectionHeader(title: String, count: Int?, systemImage: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: systemImage)
-                .font(.system(size: 11))
+    // MARK: - Week Log List
+
+    private var weekLogList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2) {
+                if groupedLogs.isEmpty {
+                    emptyState(hint: "近7天还没有日志记录")
+                } else {
+                    ForEach(Array(groupedLogs.enumerated()), id: \.element.date) { index, group in
+                        daySectionHeader(group.date, logs: group.logs, isFirst: index == 0)
+
+                        ForEach(group.logs) { task in
+                            LogRow(task: task) {
+                                modelContext.delete(task)
+                                modelContext.saveChanges()
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .frame(height: weekListHeight)
+        .clipped()
+    }
+
+    private func daySectionHeader(_ date: Date, logs: [TemporaryTask], isFirst: Bool) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(DeliveryBarTheme.accent)
+                .frame(width: 6, height: 6)
+
+            Text(weekdayDateText(for: date))
+                .font(DeliveryBarTheme.Typography.captionStrong)
+                .foregroundStyle(DeliveryBarTheme.ink)
+
+            Text("\(logs.count) 条")
+                .font(DeliveryBarTheme.Typography.caption)
                 .foregroundStyle(DeliveryBarTheme.softText)
 
-            Text(title)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(DeliveryBarTheme.inkSoft)
+            VStack(spacing: 0) { Divider() }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, isFirst ? 2 : 10)
+        .padding(.bottom, 4)
+    }
 
-            if let count, count > 0 {
-                Text("\(count)")
-                    .font(.caption2)
-                    .foregroundStyle(DeliveryBarTheme.accent)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(DeliveryBarTheme.accentWash.opacity(0.5), in: Capsule())
+    private func emptyState(hint: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 24, weight: .light))
+                .foregroundStyle(DeliveryBarTheme.muted)
+
+            Text("暂无日志")
+                .font(DeliveryBarTheme.Typography.caption)
+                .foregroundStyle(DeliveryBarTheme.softText)
+
+            Text(hint)
+                .font(DeliveryBarTheme.Typography.caption)
+                .foregroundStyle(DeliveryBarTheme.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 26)
+    }
+
+    private func copyWeeklyReport() {
+        var report = "# 周报\n\n"
+
+        for group in groupedLogs {
+            let dateStr = group.date.formatted(.dateTime.year().month().day())
+            let weekdaySymbols = calendar.shortStandaloneWeekdaySymbols
+            let weekday = weekdaySymbols[calendar.component(.weekday, from: group.date) - 1]
+            report += "## \(dateStr) (\(weekday))\n"
+            for log in group.logs {
+                report += "- \(log.title)"
+                if !log.note.isEmpty {
+                    report += "：\(log.note)"
+                }
+                report += "\n"
+            }
+            report += "\n"
+        }
+
+        Clipboard.copy(report.trimmingCharacters(in: .newlines))
+
+        withAnimation(.snappy(duration: 0.16)) {
+            didCopyReport = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            withAnimation(.snappy(duration: 0.16)) {
+                didCopyReport = false
             }
         }
-        .padding(.horizontal, 4)
     }
+
+    // MARK: - Actions
 
     private func addTask() {
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -253,222 +308,59 @@ struct TemporaryTasksView: View {
 
         let task = TemporaryTask(
             title: normalizedTitle,
-            category: category,
+            category: .log,
             note: normalizedNote,
             taskDate: selectedDate
         )
         modelContext.insert(task)
         title = ""
         note = ""
+        noteExpanded = false
         validationMessage = nil
-        cleanupExpiredTasks()
-        saveContext()
-    }
-
-    private func resetCategoryToLogIfPossible() {
-        guard !hasDraftInput else { return }
-        category = .log
-    }
-
-    private func cleanupExpiredTasks() {
-        let cutoffDate = oldestAllowedDate()
-        temporaryTasks
-            .filter { task in
-                calendar.startOfDay(for: task.taskDate) < cutoffDate
-                    && (task.category == .log || task.isCompleted)
-            }
-            .forEach { modelContext.delete($0) }
-        saveContext()
+        modelContext.saveChanges()
     }
 
     private func ensureSelectedDateInRange() {
         let startOfSelectedDate = calendar.startOfDay(for: selectedDate)
+        let visibleDates = DayStripSelector.recentDates(calendar: calendar)
         if !visibleDates.contains(where: { calendar.isDate($0, inSameDayAs: startOfSelectedDate) }) {
             selectedDate = calendar.startOfDay(for: Date())
         }
     }
 
-    private func oldestAllowedDate() -> Date {
-        let today = calendar.startOfDay(for: Date())
-        return calendar.date(byAdding: .day, value: -6, to: today) ?? today
-    }
-
-    private func dayTitle(for date: Date) -> String {
-        if calendar.isDateInToday(date) {
-            return "今天"
-        }
-        if calendar.isDateInYesterday(date) {
-            return "昨天"
-        }
-        return date.formatted(.dateTime.weekday(.narrow))
-    }
-
-    private func monthDayText(for date: Date) -> String {
-        date.formatted(.dateTime.month(.defaultDigits).day())
-    }
-
-    private func saveContext() {
-        do {
-            try modelContext.save()
-        } catch {
-            assertionFailure("Failed to save model context: \(error)")
-        }
+    private func weekdayDateText(for date: Date) -> String {
+        let weekday = date.formatted(.dateTime.weekday(.wide))
+        let monthDay = date.formatted(.dateTime.month(.defaultDigits).day())
+        return "\(weekday) \(monthDay)"
     }
 }
 
-// MARK: - Category Picker
+// MARK: - Log Row
 
-private struct CategoryPicker: View {
-    @Binding var selection: TemporaryCategory
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(TemporaryCategory.allCases) { cat in
-                Button {
-                    selection = cat
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: cat.systemImage)
-                            .font(.system(size: 10))
-                        Text(cat.title)
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(selection == cat ? DeliveryBarTheme.ink : DeliveryBarTheme.softText)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(selection == cat ? DeliveryBarTheme.accentWash.opacity(0.5) : Color.clear, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(2)
-        .background(DeliveryBarTheme.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(DeliveryBarTheme.cardStroke)
-        }
-    }
-}
-
-// MARK: - Todo Task Row
-
-private struct TodoTaskRow: View {
-    let task: TemporaryTask
-    let onToggle: () -> Void
-    let onDelete: () -> Void
-
-    @State private var isConfirmingDelete = false
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Button(action: onToggle) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(task.isCompleted ? DeliveryBarTheme.accent : DeliveryBarTheme.muted)
-            }
-            .buttonStyle(.borderless)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .strikethrough(task.isCompleted)
-                    .foregroundStyle(task.isCompleted ? DeliveryBarTheme.softText : DeliveryBarTheme.ink)
-                    .lineLimit(1)
-
-                if !task.note.isEmpty {
-                    Text(task.note)
-                        .font(.caption)
-                        .foregroundStyle(DeliveryBarTheme.softText)
-                        .lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isConfirmingDelete {
-                Button("取消") {
-                    withAnimation(.snappy(duration: 0.16)) {
-                        isConfirmingDelete = false
-                    }
-                }
-                .font(.caption2)
-                .buttonStyle(.borderless)
-
-                Button("删除", role: .destructive) {
-                    onDelete()
-                }
-                .font(.caption2)
-                .buttonStyle(.borderless)
-            } else {
-                Button("删除", role: .destructive) {
-                    withAnimation(.snappy(duration: 0.16)) {
-                        isConfirmingDelete.toggle()
-                    }
-                }
-                .font(.caption2)
-                .buttonStyle(.borderless)
-            }
-        }
-        .deliveryCard(padding: 8)
-        .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
-    }
-}
-
-// MARK: - Log Task Row
-
-private struct LogTaskRow: View {
+/// 日志行：时间 + 内容的时间线样式，日/周视图共用
+private struct LogRow: View {
     let task: TemporaryTask
     let onDelete: () -> Void
 
-    @State private var isConfirmingDelete = false
-
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "doc.text")
-                .font(.system(size: 12))
+        CompactTaskRow(copyText: task.copyText, onDelete: onDelete) {
+            Text(task.createdAt, style: .time)
+                .font(.caption2.monospacedDigit())
                 .foregroundStyle(DeliveryBarTheme.softText)
-                .frame(width: 16)
+                .frame(width: 40, alignment: .leading)
+                .padding(.top, 2)
+        } content: {
+            Text(task.title)
+                .font(DeliveryBarTheme.Typography.caption)
+                .foregroundStyle(DeliveryBarTheme.ink)
+                .lineLimit(3)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(DeliveryBarTheme.ink)
-                    .lineLimit(2)
-
-                if !task.note.isEmpty {
-                    Text(task.note)
-                        .font(.caption)
-                        .foregroundStyle(DeliveryBarTheme.softText)
-                        .lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if isConfirmingDelete {
-                Button("取消") {
-                    withAnimation(.snappy(duration: 0.16)) {
-                        isConfirmingDelete = false
-                    }
-                }
-                .font(.caption2)
-                .buttonStyle(.borderless)
-
-                Button("删除", role: .destructive) {
-                    onDelete()
-                }
-                .font(.caption2)
-                .buttonStyle(.borderless)
-            } else {
-                Button("删除", role: .destructive) {
-                    withAnimation(.snappy(duration: 0.16)) {
-                        isConfirmingDelete.toggle()
-                    }
-                }
-                .font(.caption2)
-                .buttonStyle(.borderless)
+            if !task.note.isEmpty {
+                Text(task.note)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.softText)
+                    .lineLimit(3)
             }
         }
-        .deliveryCard(padding: 8)
-        .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
     }
 }

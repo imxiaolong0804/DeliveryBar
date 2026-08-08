@@ -8,13 +8,16 @@ import SwiftUI
 
 struct MenuBarView: View {
     private let onOpenJSONFormatter: () -> Void
+    private let onOpenMemo: () -> Void
     private let onPreferredSizeChange: (CGSize) -> Void
 
     init(
         onOpenJSONFormatter: @escaping () -> Void = {},
+        onOpenMemo: @escaping () -> Void = {},
         onPreferredSizeChange: @escaping (CGSize) -> Void = { _ in }
     ) {
         self.onOpenJSONFormatter = onOpenJSONFormatter
+        self.onOpenMemo = onOpenMemo
         self.onPreferredSizeChange = onPreferredSizeChange
     }
 
@@ -29,17 +32,35 @@ struct MenuBarView: View {
         static let verticalPadding: CGFloat = 12
         static let headerHeight: CGFloat = 54
         static let tabHeight: CGFloat = 44
-        static let requirementStatusTabHeight: CGFloat = 68
+        // 原来 68 含一行说明文字（caption2 13 + VStack 间距 6），去掉后按差值下调
+        static let requirementStatusTabHeight: CGFloat = 49
+        static let searchBarHeight: CGFloat = 45
         static let footerHeight: CGFloat = 50
         static let settingsContentHeight: CGFloat = 360
 
-        // Temporary tasks: fixed parts
-        static let tempDateSelectorHeight: CGFloat = 78
-        static let tempAddFormHeight: CGFloat = 90
-        static let tempRowHeight: CGFloat = 52
-        static let tempSectionHeaderHeight: CGFloat = 22
-        static let tempMinListHeight: CGFloat = 60
-        static let tempMaxListHeight: CGFloat = 220
+        // Todo / Logs 共用：轻量输入行与备注展开的估算高度
+        static let addFormHeight: CGFloat = 38
+        static let noteFieldExtraHeight: CGFloat = 32
+        static let taskRowHeight: CGFloat = 34
+        static let taskRowNoteExtra: CGFloat = 17
+        static let taskRowSpacing: CGFloat = 2
+
+        // Todo tab
+        static let todoToolbarHeight: CGFloat = 45
+        static let todoCompletedHeaderHeight: CGFloat = 28
+        static let todoMinListHeight: CGFloat = 130
+        static let todoMaxListHeight: CGFloat = 330
+
+        // Logs tab
+        static let logToolbarHeight: CGFloat = 45
+        static let logMinListHeight: CGFloat = 130
+        static let logMaxListHeight: CGFloat = 340
+
+        // Week view
+        static let logWeekToolbarHeight: CGFloat = 38
+        static let logWeekDayHeaderHeight: CGFloat = 28
+        static let logWeekMinContentHeight: CGFloat = 180
+        static let logWeekMaxContentHeight: CGFloat = 430
 
         // Quick entries: fixed parts
         static let quickSearchBarHeight: CGFloat = 44
@@ -58,13 +79,35 @@ struct MenuBarView: View {
     @State private var currentTab: MenuBarTab = .requirements
     @State private var selectedRequirementStatus: RequirementStatus = .developing
     @State private var hasResolvedInitialRequirementStatus = false
-    @State private var selectedTempDate = Calendar.current.startOfDay(for: Date())
+    @State private var selectedTodoDate = Calendar.current.startOfDay(for: Date())
+    @State private var selectedLogDate = Calendar.current.startOfDay(for: Date())
+    @State private var logViewMode: LogViewMode = .day
+    @State private var todoNoteExpanded = false
+    @State private var logNoteExpanded = false
     @State private var editorRequest: RequirementEditorRequest?
     @State private var quickEntryEditorRequest: QuickEntryEditorRequest?
     @State private var showsAttentionPopover = false
+    @State private var showsRequirementSearch = false
+    @State private var requirementSearchText = ""
+
+    /// 需求列表与归档共用的搜索过滤（关注数不受影响，始终基于全量）
+    private var searchedRequirements: [Requirement] {
+        let query = requirementSearchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return requirements }
+        return requirements.filter { $0.matches(query) }
+    }
+
+    private var isSearchingRequirements: Bool {
+        showsRequirementSearch
+            && !requirementSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var supportsRequirementSearch: Bool {
+        currentTab == .requirements || currentTab == .archive
+    }
 
     private var activeRequirements: [Requirement] {
-        requirements.filter { !$0.isArchived }
+        searchedRequirements.filter { !$0.isArchived }
     }
 
     private var existingQuickEntryTags: [String] {
@@ -72,24 +115,40 @@ struct MenuBarView: View {
         return tags.sorted()
     }
 
-    private var selectedTempTasks: [TemporaryTask] {
-        temporaryTasks
-            .filter { Calendar.current.isDate($0.taskDate, inSameDayAs: selectedTempDate) }
+    private var allTodoTasks: [TemporaryTask] {
+        temporaryTasks.filter { $0.category == .todo }
     }
 
-    private var tempTodoCount: Int {
-        selectedTempTasks.filter { $0.category == .todo }.count
+    private var uncompletedTodoCount: Int {
+        allTodoTasks.filter { !$0.isCompleted }.count
     }
 
-    private var tempLogCount: Int {
-        selectedTempTasks.filter { $0.category == .log }.count
+    private var visibleTodoTasks: [TemporaryTask] {
+        allTodoTasks.filter { task in
+            if !task.isCompleted { return true }
+            return Calendar.current.isDate(task.taskDate, inSameDayAs: selectedTodoDate)
+        }
+        .sorted { lhs, rhs in
+            if lhs.isCompleted != rhs.isCompleted { return !lhs.isCompleted }
+            return lhs.updatedAt > rhs.updatedAt
+        }
     }
 
-    private var tempSectionCount: Int {
-        var count = 0
-        if tempTodoCount > 0 { count += 1 }
-        if tempLogCount > 0 { count += 1 }
-        return count
+    private var selectedLogTasks: [TemporaryTask] {
+        temporaryTasks.filter { task in
+            task.category == .log
+                && Calendar.current.isDate(task.taskDate, inSameDayAs: selectedLogDate)
+        }
+    }
+
+    private var weekLogTasks: [TemporaryTask] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let sevenDaysAgo = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+        return temporaryTasks.filter { task in
+            task.category == .log && task.taskDate >= sevenDaysAgo && task.taskDate <= today
+        }
+        .sorted { $0.taskDate > $1.taskDate || ($0.taskDate == $1.taskDate && $0.updatedAt > $1.updatedAt) }
     }
 
     private var filteredQuickEntries: [QuickEntry] {
@@ -100,7 +159,7 @@ struct MenuBarView: View {
     }
 
     private var archivedRequirements: [Requirement] {
-        requirements.filter { $0.isArchived }
+        searchedRequirements.filter { $0.isArchived }
     }
 
     private var attentionItems: [(requirement: Requirement, reason: String)] {
@@ -128,28 +187,79 @@ struct MenuBarView: View {
         listHeight(rowCount: archivedRequirements.count, sectionCount: archivedRequirements.isEmpty ? 0 : 1, isEmpty: archivedRequirements.isEmpty)
     }
 
+    private var requirementSearchBarHeight: CGFloat {
+        showsRequirementSearch ? Layout.searchBarHeight + 1 : 0
+    }
+
     private var mainPanelHeight: CGFloat {
-        Layout.headerHeight + Layout.tabHeight + Layout.requirementStatusTabHeight + mainListHeight + Layout.footerHeight + 4
+        Layout.headerHeight + Layout.tabHeight + requirementSearchBarHeight
+            + Layout.requirementStatusTabHeight + mainListHeight + Layout.footerHeight + 4
     }
 
     private var archivePanelHeight: CGFloat {
-        Layout.headerHeight + Layout.tabHeight + archiveListHeight + Layout.footerHeight + 3
+        Layout.headerHeight + Layout.tabHeight + requirementSearchBarHeight
+            + archiveListHeight + Layout.footerHeight + 3
     }
 
-    private var temporaryListHeight: CGFloat {
-        let count = selectedTempTasks.count
-        if count == 0 { return Layout.tempMinListHeight }
-        let contentHeight = CGFloat(count) * Layout.tempRowHeight
-            + CGFloat(tempSectionCount) * Layout.tempSectionHeaderHeight
-            + Layout.verticalPadding
-        return min(max(contentHeight, Layout.tempMinListHeight), Layout.tempMaxListHeight)
+    private func estimatedRowsHeight(for tasks: [TemporaryTask]) -> CGFloat {
+        let rows = tasks.reduce(CGFloat(0)) { partial, task in
+            partial + Layout.taskRowHeight + (task.note.isEmpty ? 0 : Layout.taskRowNoteExtra)
+        }
+        return rows + CGFloat(max(tasks.count - 1, 0)) * Layout.taskRowSpacing
     }
 
-    private var temporaryPanelHeight: CGFloat {
+    private var todoContentChromeHeight: CGFloat {
+        Layout.todoToolbarHeight + 1
+            + Layout.addFormHeight + (todoNoteExpanded ? Layout.noteFieldExtraHeight : 0) + 1
+    }
+
+    private var todoListHeight: CGFloat {
+        let tasks = visibleTodoTasks
+        if tasks.isEmpty { return Layout.todoMinListHeight }
+        let completedHeader: CGFloat = tasks.contains(where: \.isCompleted) ? Layout.todoCompletedHeaderHeight : 0
+        let contentHeight = estimatedRowsHeight(for: tasks) + completedHeader + Layout.verticalPadding
+        return min(max(contentHeight, Layout.todoMinListHeight), Layout.todoMaxListHeight)
+    }
+
+    private var todoPanelHeight: CGFloat {
         Layout.headerHeight + Layout.tabHeight
-            + Layout.tempDateSelectorHeight + 1
-            + Layout.tempAddFormHeight + 20 + 1
-            + temporaryListHeight
+            + todoContentChromeHeight
+            + todoListHeight
+            + Layout.footerHeight + 3
+    }
+
+    private var logListHeight: CGFloat {
+        let tasks = selectedLogTasks
+        if tasks.isEmpty { return Layout.logMinListHeight }
+        let contentHeight = estimatedRowsHeight(for: tasks) + Layout.verticalPadding
+        return min(max(contentHeight, Layout.logMinListHeight), Layout.logMaxListHeight)
+    }
+
+    private var logWeekListHeight: CGFloat {
+        let tasks = weekLogTasks
+        if tasks.isEmpty { return Layout.logWeekMinContentHeight }
+        let dayCount = Set(tasks.map { Calendar.current.startOfDay(for: $0.taskDate) }).count
+        let contentHeight = estimatedRowsHeight(for: tasks)
+            + CGFloat(dayCount) * Layout.logWeekDayHeaderHeight
+            + Layout.verticalPadding
+        return min(max(contentHeight, Layout.logWeekMinContentHeight), Layout.logWeekMaxContentHeight)
+    }
+
+    private var logPanelContentHeight: CGFloat {
+        switch logViewMode {
+        case .day:
+            return Layout.logToolbarHeight + 1
+                + Layout.addFormHeight + (logNoteExpanded ? Layout.noteFieldExtraHeight : 0) + 1
+                + logListHeight
+        case .week:
+            return Layout.logWeekToolbarHeight + 1
+                + logWeekListHeight
+        }
+    }
+
+    private var logPanelHeight: CGFloat {
+        Layout.headerHeight + Layout.tabHeight
+            + logPanelContentHeight
             + Layout.footerHeight + 3
     }
 
@@ -176,8 +286,10 @@ struct MenuBarView: View {
         switch currentTab {
         case .requirements:
             mainPanelHeight
-        case .temporary:
-            temporaryPanelHeight
+        case .todo:
+            todoPanelHeight
+        case .log:
+            logPanelHeight
         case .quickMap:
             quickMapPanelHeight
         case .archive:
@@ -221,14 +333,14 @@ struct MenuBarView: View {
         }
         .frame(width: Layout.panelWidth)
         .onAppear {
-            migrateLegacyUndeliveredRequirements()
-            cleanupExpiredTemporaryTasks()
+            MaintenanceService.run(in: modelContext)
             resolveInitialRequirementStatusIfNeeded()
             notifyPreferredSize()
         }
         .onChange(of: currentTab) { _, newTab in
-            if newTab == .temporary {
-                cleanupExpiredTemporaryTasks()
+            // 面板可能连开几天不退出，切到临时任务时补跑一次滚动窗口清理
+            if newTab == .log || newTab == .todo {
+                MaintenanceService.run(in: modelContext)
             }
         }
         .onChange(of: preferredPanelHeight) { _, _ in
@@ -246,6 +358,12 @@ struct MenuBarView: View {
 
             Divider()
 
+            if showsRequirementSearch, supportsRequirementSearch {
+                requirementSearchBar
+
+                Divider()
+            }
+
             tabContent
 
             Divider()
@@ -257,6 +375,7 @@ struct MenuBarView: View {
         .tint(DeliveryBarTheme.accent)
     }
 
+    /// 归档与设置是低频入口，只留图标，把宽度让给高频 tab
     private var tabSelector: some View {
         HStack(spacing: 6) {
             ForEach(MenuBarTab.allCases) { tab in
@@ -264,18 +383,51 @@ struct MenuBarView: View {
                     currentTab = tab
                 } label: {
                     let isSelected = currentTab == tab
-                    Label(tab.title, systemImage: tab.systemImage)
-                        .font(.caption)
-                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                        .selectablePill(isSelected: isSelected, verticalPadding: 5)
+                    Group {
+                        if tab.showsTitleInTabBar {
+                            Label(tab.title, systemImage: tab.systemImage)
+                                .labelStyle(.titleAndIcon)
+                        } else {
+                            Image(systemName: tab.systemImage)
+                        }
+                    }
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
+                    .selectablePill(isSelected: isSelected, verticalPadding: 5)
                 }
                 .buttonStyle(.plain)
+                .fixedSize(horizontal: !tab.showsTitleInTabBar, vertical: false)
+                .help(tab.title)
             }
         }
-        .labelStyle(.titleAndIcon)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(DeliveryBarTheme.barBackground)
+    }
+
+    private var requirementSearchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundStyle(DeliveryBarTheme.softText)
+
+            TextField("搜索标题、描述、备注、PM 或测试", text: $requirementSearchText)
+                .textFieldStyle(.plain)
+                .font(DeliveryBarTheme.Typography.caption)
+
+            if !requirementSearchText.isEmpty {
+                Button {
+                    requirementSearchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(DeliveryBarTheme.softText)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .deliveryCard(padding: 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder
@@ -283,9 +435,22 @@ struct MenuBarView: View {
         switch currentTab {
         case .requirements:
             mainList
-        case .temporary:
-            TemporaryTasksView(listHeight: temporaryListHeight, selectedDate: $selectedTempDate)
-                .frame(height: Layout.tempDateSelectorHeight + 1 + Layout.tempAddFormHeight + 20 + 1 + temporaryListHeight)
+        case .todo:
+            TodoListView(
+                listHeight: todoListHeight,
+                selectedDate: $selectedTodoDate,
+                noteExpanded: $todoNoteExpanded
+            )
+            .frame(height: todoContentChromeHeight + todoListHeight, alignment: .top)
+        case .log:
+            TemporaryTasksView(
+                listHeight: logListHeight,
+                weekListHeight: logWeekListHeight,
+                selectedDate: $selectedLogDate,
+                viewMode: $logViewMode,
+                noteExpanded: $logNoteExpanded
+            )
+            .frame(height: logPanelContentHeight, alignment: .top)
         case .quickMap:
             QuickEntryListView(listHeight: quickMapListHeight, onEdit: { entry in
                 quickEntryEditorRequest = QuickEntryEditorRequest(
@@ -306,32 +471,46 @@ struct MenuBarView: View {
         HStack(spacing: 8) {
             Image(systemName: currentTab.systemImage)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(DeliveryBarTheme.ink)
+                .foregroundStyle(DeliveryBarTheme.inkSoft)
                 .frame(width: 32, height: 32)
-                .background(DeliveryBarTheme.accentWash, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(DeliveryBarTheme.ink.opacity(0.14))
-                }
+                .background(DeliveryBarTheme.quietFill, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(DeliveryBarTheme.Typography.windowTitle)
                     .foregroundStyle(DeliveryBarTheme.ink)
 
                 Text(subtitle)
-                    .font(.caption)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.softText)
             }
 
             Spacer()
+
+            if supportsRequirementSearch {
+                Button {
+                    withAnimation(.snappy(duration: 0.16)) {
+                        showsRequirementSearch.toggle()
+                    }
+                    if !showsRequirementSearch {
+                        requirementSearchText = ""
+                    }
+                } label: {
+                    Image(systemName: showsRequirementSearch ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(showsRequirementSearch ? DeliveryBarTheme.accent : DeliveryBarTheme.softText)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("f", modifiers: .command)
+                .help("搜索需求（⌘F）")
+            }
 
             if attentionCount > 0 {
                 Button {
                     showsAttentionPopover.toggle()
                 } label: {
                     Label("\(attentionCount)", systemImage: "exclamationmark.circle.fill")
-                        .font(.caption)
+                        .font(DeliveryBarTheme.Typography.caption)
                         .foregroundStyle(.white)
                         .labelStyle(.titleAndIcon)
                         .padding(.horizontal, 8)
@@ -351,12 +530,11 @@ struct MenuBarView: View {
     private var attentionListPopover: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("需要关注的需求")
-                .font(.subheadline)
-                .fontWeight(.semibold)
+                .font(DeliveryBarTheme.Typography.captionStrong)
                 .foregroundStyle(DeliveryBarTheme.ink)
 
             Text("逾期 / 今天到期，或在当前阶段停留过久")
-                .font(.caption2)
+                .font(DeliveryBarTheme.Typography.caption)
                 .foregroundStyle(DeliveryBarTheme.softText)
 
             Divider()
@@ -378,6 +556,8 @@ struct MenuBarView: View {
         Button {
             showsAttentionPopover = false
             currentTab = .requirements
+            // 带着搜索条件跳过去可能什么都看不到，直接清掉
+            requirementSearchText = ""
             if RequirementStatus.mainList.contains(requirement.status) {
                 selectedRequirementStatus = requirement.status
             }
@@ -385,12 +565,11 @@ struct MenuBarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(requirement.priority.rankTitle)
-                        .font(.caption2)
-                        .fontWeight(.bold)
+                        .font(DeliveryBarTheme.Typography.captionStrong)
                         .foregroundStyle(requirement.priority.tintColor)
 
                     Text(requirement.title)
-                        .font(.caption)
+                        .font(DeliveryBarTheme.Typography.caption)
                         .foregroundStyle(DeliveryBarTheme.ink)
                         .lineLimit(1)
 
@@ -399,12 +578,11 @@ struct MenuBarView: View {
 
                 HStack(spacing: 6) {
                     Text(requirement.status.compactTitle)
-                        .font(.caption2)
+                        .font(DeliveryBarTheme.Typography.caption)
                         .foregroundStyle(requirement.status.tintColor)
 
                     Text(reason)
-                        .font(.caption2)
-                        .fontWeight(.semibold)
+                        .font(DeliveryBarTheme.Typography.captionStrong)
                         .foregroundStyle(DeliveryBarTheme.danger)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -416,9 +594,15 @@ struct MenuBarView: View {
             .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("复制标题") { Clipboard.copy(requirement.title) }
+        }
     }
 
     private var summaryText: String {
+        if isSearchingRequirements {
+            return activeRequirements.isEmpty ? "没有匹配的需求" : "\(activeRequirements.count) 条匹配"
+        }
         if activeRequirements.isEmpty {
             return "暂无进行中的需求"
         }
@@ -432,12 +616,27 @@ struct MenuBarView: View {
         switch currentTab {
         case .requirements:
             summaryText
-        case .temporary:
-            "待办与工作日志"
+        case .todo:
+            if uncompletedTodoCount > 0 {
+                "\(uncompletedTodoCount) 个未完成"
+            } else if visibleTodoTasks.isEmpty {
+                "记录今天要完成的事"
+            } else {
+                "全部完成 🎉"
+            }
+        case .log:
+            switch logViewMode {
+            case .day: "\(selectedLogTasks.count) 条日志"
+            case .week: "\(weekLogTasks.count) 条日志（近7天）"
+            }
         case .quickMap:
             quickEntries.isEmpty ? "保存常用的链接、脚本和文本片段" : "\(quickEntries.count) 个快捷录"
         case .archive:
-            "\(archivedRequirements.count) 个已归档需求"
+            if isSearchingRequirements {
+                archivedRequirements.isEmpty ? "没有匹配的归档需求" : "\(archivedRequirements.count) 条匹配"
+            } else {
+                "\(archivedRequirements.count) 个已归档需求"
+            }
         case .settings:
             "提醒与偏好设置"
         }
@@ -474,50 +673,37 @@ struct MenuBarView: View {
         }
     }
 
+    /// 胶囊之间的箭头本身就表达了流转方向，不再额外占一行说明文字
     private var requirementStatusTabs: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("需求流转")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(DeliveryBarTheme.ink)
+        HStack(spacing: 4) {
+            ForEach(Array(RequirementStatus.mainList.enumerated()), id: \.element.id) { index, status in
+                Button {
+                    selectedRequirementStatus = status
+                } label: {
+                    let isSelected = selectedRequirementStatus == status
+                    HStack(spacing: 4) {
+                        Text(status.compactTitle)
+                            .lineLimit(1)
 
-                Spacer()
-
-                Text("点击阶段筛选，卡片右侧推进下一步")
-                    .font(.caption2)
-                    .foregroundStyle(DeliveryBarTheme.softText)
-            }
-
-            HStack(spacing: 4) {
-                ForEach(Array(RequirementStatus.mainList.enumerated()), id: \.element.id) { index, status in
-                    Button {
-                        selectedRequirementStatus = status
-                    } label: {
-                        let isSelected = selectedRequirementStatus == status
-                        HStack(spacing: 4) {
-                            Text(status.compactTitle)
-                                .lineLimit(1)
-
-                            Text("\(requirements(for: status).count)")
-                                .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
-                        }
-                        .font(.caption)
-                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
-                        .selectablePill(isSelected: isSelected, verticalPadding: 5)
+                        Text("\(requirements(for: status).count)")
+                            .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
                     }
-                    .buttonStyle(.plain)
+                    .font(DeliveryBarTheme.Typography.caption)
+                    .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
+                    .selectablePill(isSelected: isSelected, verticalPadding: 5)
+                }
+                .buttonStyle(.plain)
 
-                    if index < RequirementStatus.mainList.count - 1 {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(DeliveryBarTheme.softText.opacity(0.7))
-                    }
+                if index < RequirementStatus.mainList.count - 1 {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(DeliveryBarTheme.softText.opacity(0.7))
                 }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .help("点击阶段筛选需求，卡片右侧按钮推进到下一步")
     }
 
     private var archiveList: some View {
@@ -540,7 +726,7 @@ struct MenuBarView: View {
                             onDelete: { deleteRequirement(requirement) },
                             onRestore: {
                                 requirement.updateStatus(.completed)
-                                saveContext()
+                                modelContext.saveChanges()
                             }
                         )
                     }
@@ -554,8 +740,8 @@ struct MenuBarView: View {
     }
 
     private var emptyState: some View {
-        Text(activeRequirements.isEmpty ? "等待您新建一个需求" : "\(selectedRequirementStatus.compactTitle)暂无需求")
-            .font(.subheadline)
+        Text(emptyStateText)
+            .font(DeliveryBarTheme.Typography.caption)
             .foregroundStyle(DeliveryBarTheme.softText)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 22)
@@ -584,10 +770,18 @@ struct MenuBarView: View {
             }
 
             Button {
+                onOpenMemo()
+            } label: {
+                Label("备忘", systemImage: "note.text")
+            }
+            .help("打开备忘窗口（⌘⇧N 直接新建）")
+
+            Button {
                 onOpenJSONFormatter()
             } label: {
-                Label("JSON 格式化", systemImage: "curlybraces")
+                Label("JSON", systemImage: "curlybraces")
             }
+            .help("JSON 格式化与对比（⌘⇧J）")
 
             Spacer()
 
@@ -598,7 +792,13 @@ struct MenuBarView: View {
         .labelStyle(.titleAndIcon)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(DeliveryBarTheme.footerBackground)
+    }
+
+    private var emptyStateText: String {
+        if isSearchingRequirements {
+            return "没有匹配的需求，换个关键词试试"
+        }
+        return activeRequirements.isEmpty ? "等待您新建一个需求" : "\(selectedRequirementStatus.compactTitle)暂无需求"
     }
 
     private func requirements(for status: RequirementStatus) -> [Requirement] {
@@ -612,23 +812,17 @@ struct MenuBarView: View {
             }
     }
 
-    private func moveToNextStatus(_ requirement: Requirement) {
-        guard let nextStatus = requirement.status.nextStatus else { return }
-        requirement.updateStatus(nextStatus)
-        saveContext()
-    }
-
     private func updateStatus(_ requirement: Requirement, _ status: RequirementStatus) {
         requirement.updateStatus(status)
         if RequirementStatus.mainList.contains(status) {
             selectedRequirementStatus = status
         }
-        saveContext()
+        modelContext.saveChanges()
     }
 
     private func deleteRequirement(_ requirement: Requirement) {
         modelContext.delete(requirement)
-        saveContext()
+        modelContext.saveChanges()
     }
 
     private func listHeight(rowCount: Int, sectionCount: Int, isEmpty: Bool) -> CGFloat {
@@ -642,37 +836,6 @@ struct MenuBarView: View {
             + CGFloat(sectionCount) * Layout.sectionHeaderHeight
             + Layout.listVerticalPadding
         return min(max(contentHeight, Layout.minListHeight), Layout.maxListHeight)
-    }
-
-    private func saveContext() {
-        do {
-            try modelContext.save()
-        } catch {
-            assertionFailure("Failed to save model context: \(error)")
-        }
-    }
-
-    private func cleanupExpiredTemporaryTasks() {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let cutoffDate = calendar.date(byAdding: .day, value: -6, to: today) ?? today
-        temporaryTasks
-            .filter { task in
-                calendar.startOfDay(for: task.taskDate) < cutoffDate
-                    && (task.category == .log || task.isCompleted)
-            }
-            .forEach { modelContext.delete($0) }
-        saveContext()
-    }
-
-    private func migrateLegacyUndeliveredRequirements() {
-        let legacyRequirements = requirements.filter { $0.status == .developedNotDelivered }
-        guard !legacyRequirements.isEmpty else { return }
-
-        legacyRequirements.forEach {
-            $0.statusRaw = RequirementStatus.waitingAcceptance.rawValue
-        }
-        saveContext()
     }
 
     private func resolveInitialRequirementStatusIfNeeded() {
@@ -696,9 +859,15 @@ struct MenuBarView: View {
     }
 }
 
+enum LogViewMode: String, CaseIterable {
+    case day
+    case week
+}
+
 enum MenuBarTab: String, CaseIterable, Identifiable {
     case requirements
-    case temporary
+    case todo
+    case log
     case quickMap
     case archive
     case settings
@@ -709,8 +878,10 @@ enum MenuBarTab: String, CaseIterable, Identifiable {
         switch self {
         case .requirements:
             "需求列表"
-        case .temporary:
-            "临时"
+        case .todo:
+            "待办"
+        case .log:
+            "日志"
         case .quickMap:
             "快捷录"
         case .archive:
@@ -724,14 +895,26 @@ enum MenuBarTab: String, CaseIterable, Identifiable {
         switch self {
         case .requirements:
             "checklist"
-        case .temporary:
-            "calendar.badge.clock"
+        case .todo:
+            "checkmark.circle"
+        case .log:
+            "doc.text"
         case .quickMap:
             "keyboard"
         case .archive:
             "archivebox"
         case .settings:
             "gearshape"
+        }
+    }
+
+    /// 归档、设置属于低频入口，在 tab 栏里只显示图标
+    var showsTitleInTabBar: Bool {
+        switch self {
+        case .requirements, .todo, .log, .quickMap:
+            true
+        case .archive, .settings:
+            false
         }
     }
 }
@@ -741,44 +924,3 @@ struct RequirementEditorRequest: Identifiable {
     let requirement: Requirement?
 }
 
-struct RequirementSectionView: View {
-    let status: RequirementStatus
-    let requirements: [Requirement]
-    let remindersEnabled: Bool
-    let onEdit: (Requirement) -> Void
-    let onChangeStatus: (Requirement, RequirementStatus) -> Void
-    let onDelete: (Requirement) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(status.tintColor)
-                    .frame(width: 6, height: 6)
-
-                Text(status.compactTitle)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-
-                Text("\(requirements.count)")
-                    .font(.caption)
-                    .foregroundStyle(DeliveryBarTheme.softText)
-                Spacer()
-            }
-            .padding(.horizontal, 2)
-
-            VStack(spacing: 5) {
-                ForEach(requirements) { requirement in
-                    RequirementRowView(
-                        requirement: requirement,
-                        remindersEnabled: remindersEnabled,
-                        onEdit: { onEdit(requirement) },
-                        onChangeStatus: { onChangeStatus(requirement, $0) },
-                        onDelete: { onDelete(requirement) },
-                        onRestore: nil
-                    )
-                }
-            }
-        }
-    }
-}

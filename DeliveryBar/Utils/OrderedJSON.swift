@@ -8,17 +8,13 @@
 import Foundation
 
 enum JSONFormatterEngine {
-    static func transform(_ text: String, options: JSONSerialization.WritingOptions) throws -> String {
+    static func transform(_ text: String, prettyPrinted: Bool) throws -> String {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = try OrderedJSONParser(text: normalized).parse()
-        return OrderedJSONRenderer.render(value, prettyPrinted: options.contains(.prettyPrinted))
+        return OrderedJSONRenderer.render(value, prettyPrinted: prettyPrinted)
     }
 
     static func message(for error: Error) -> String {
-        if let formatterError = error as? JSONFormatterError {
-            return formatterError.localizedDescription
-        }
-
         if let parseError = error as? OrderedJSONParseError {
             return parseError.localizedDescription
         }
@@ -500,17 +496,6 @@ private extension Character {
             return Int(scalar.value - 87)
         default:
             return nil
-        }
-    }
-}
-
-enum JSONFormatterError: LocalizedError {
-    case invalidEncoding
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidEncoding:
-            "无法按 UTF-8 读取或输出这段 JSON"
         }
     }
 }

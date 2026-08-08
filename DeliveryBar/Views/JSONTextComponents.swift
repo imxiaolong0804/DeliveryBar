@@ -29,10 +29,13 @@ struct JSONTextSearchResult: Equatable {
 
 struct JSONPaneSplitHandle: NSViewRepresentable {
     @Binding var resultPaneRatio: Double
-    let paneHeight: CGFloat
+    /// 分栏方向上的可用长度：左右分栏给宽度，上下分栏给高度
+    let paneLength: CGFloat
     let minRatio: Double
     let maxRatio: Double
-    let handleWidth: CGFloat
+    let handleLength: CGFloat
+    /// true 表示左右分栏——把手画成竖条，左右拖动
+    var isHorizontal = false
 
     func makeNSView(context: Context) -> SplitHandleView {
         let view = SplitHandleView(resultPaneRatio: $resultPaneRatio)
@@ -46,22 +49,25 @@ struct JSONPaneSplitHandle: NSViewRepresentable {
     }
 
     private func update(_ view: SplitHandleView) {
-        view.paneHeight = paneHeight
+        view.paneLength = paneLength
         view.minRatio = minRatio
         view.maxRatio = maxRatio
-        view.handleWidth = handleWidth
+        view.handleLength = handleLength
+        view.isHorizontal = isHorizontal
         view.needsDisplay = true
+        view.window?.invalidateCursorRects(for: view)
     }
 
     final class SplitHandleView: NSView {
         var resultPaneRatio: Binding<Double>
-        var paneHeight: CGFloat = 1
+        var paneLength: CGFloat = 1
         var minRatio = 0.18
         var maxRatio = 0.82
-        var handleWidth: CGFloat = 52
+        var handleLength: CGFloat = 52
+        var isHorizontal = false
 
         private var dragStartRatio: Double?
-        private var dragStartLocationY: CGFloat?
+        private var dragStartLocation: CGFloat?
 
         override var mouseDownCanMoveWindow: Bool { false }
         override var acceptsFirstResponder: Bool { true }
@@ -79,78 +85,63 @@ struct JSONPaneSplitHandle: NSViewRepresentable {
 
         override func mouseDown(with event: NSEvent) {
             dragStartRatio = resultPaneRatio.wrappedValue
-            dragStartLocationY = event.locationInWindow.y
+            dragStartLocation = isHorizontal ? event.locationInWindow.x : event.locationInWindow.y
         }
 
         override func mouseDragged(with event: NSEvent) {
             guard
-                paneHeight > 0,
+                paneLength > 0,
                 let dragStartRatio,
-                let dragStartLocationY
+                let dragStartLocation
             else {
                 return
             }
 
-            let translationY = event.locationInWindow.y - dragStartLocationY
-            let nextRatio = dragStartRatio + Double(translationY / paneHeight)
+            let current = isHorizontal ? event.locationInWindow.x : event.locationInWindow.y
+            // 结果区在右边（左右分栏）或下边（上下分栏）。往左拖 x 变小、往上拖 y 变大，
+            // 两种情况下结果区都该变大，所以水平方向要取反。
+            let translation = isHorizontal ? -(current - dragStartLocation) : current - dragStartLocation
+            let nextRatio = dragStartRatio + Double(translation / paneLength)
             resultPaneRatio.wrappedValue = min(max(nextRatio, minRatio), maxRatio)
         }
 
         override func mouseUp(with event: NSEvent) {
             dragStartRatio = nil
-            dragStartLocationY = nil
+            dragStartLocation = nil
         }
 
         override func resetCursorRects() {
-            addCursorRect(bounds, cursor: .resizeUpDown)
+            addCursorRect(bounds, cursor: isHorizontal ? .resizeLeftRight : .resizeUpDown)
         }
 
         override func draw(_ dirtyRect: NSRect) {
             super.draw(dirtyRect)
 
             NSColor.secondaryLabelColor.withAlphaComponent(0.38).setFill()
-            let handleRect = NSRect(
-                x: bounds.midX - handleWidth / 2,
-                y: bounds.midY - 2,
-                width: handleWidth,
-                height: 4
-            )
+            let handleRect = isHorizontal
+                ? NSRect(x: bounds.midX - 2, y: bounds.midY - handleLength / 2, width: 4, height: handleLength)
+                : NSRect(x: bounds.midX - handleLength / 2, y: bounds.midY - 2, width: handleLength, height: 4)
             NSBezierPath(roundedRect: handleRect, xRadius: 2, yRadius: 2).fill()
         }
     }
 }
 
+/// 程序写入正文的入口。走它而不是直接改 @State，是为了让「格式化」「恢复历史」这类
+/// 整段替换也进系统撤销栈——用户手改过结果之后再点格式化，⌘Z 能回到改之前。
 final class JSONTextEditingState: ObservableObject {
-    @Published private(set) var canUndo = false
-    @Published private(set) var canRedo = false
-
     private weak var textView: NSTextView?
 
     func attach(_ textView: NSTextView) {
         self.textView = textView
-        scheduleUndoAvailabilityUpdate()
     }
 
-    func undo() {
-        guard let undoManager = textView?.undoManager, undoManager.canUndo else { return }
-        undoManager.undo()
-        scheduleUndoAvailabilityUpdate()
-    }
-
-    func redo() {
-        guard let undoManager = textView?.undoManager, undoManager.canRedo else { return }
-        undoManager.redo()
-        scheduleUndoAvailabilityUpdate()
-    }
-
-    func replaceAllText(with newText: String, actionName: String) -> Bool {
+    /// caretAtStart：格式化结果这类「换了一整份内容」的场景要停在开头，
+    /// 否则会直接滚到文末，看不到刚生成的内容
+    func replaceAllText(with newText: String, actionName: String, caretAtStart: Bool = false) -> Bool {
         guard let textView, textView.isEditable else { return false }
 
         let currentText = textView.string
-        guard currentText != newText else {
-            scheduleUndoAvailabilityUpdate()
-            return true
-        }
+        guard currentText != newText else { return true }
 
         let fullRange = NSRange(location: 0, length: (currentText as NSString).length)
         guard textView.shouldChangeText(in: fullRange, replacementString: newText) else { return false }
@@ -158,28 +149,9 @@ final class JSONTextEditingState: ObservableObject {
         textView.textStorage?.replaceCharacters(in: fullRange, with: newText)
         textView.didChangeText()
         textView.undoManager?.setActionName(actionName)
-        textView.setSelectedRange(NSRange(location: (newText as NSString).length, length: 0))
+        textView.setSelectedRange(NSRange(location: caretAtStart ? 0 : (newText as NSString).length, length: 0))
         textView.scrollRangeToVisible(textView.selectedRange())
-        scheduleUndoAvailabilityUpdate()
         return true
-    }
-
-    func scheduleUndoAvailabilityUpdate() {
-        DispatchQueue.main.async { [weak self] in
-            self?.updateUndoAvailability()
-        }
-    }
-
-    private func updateUndoAvailability() {
-        let nextCanUndo = textView?.undoManager?.canUndo ?? false
-        let nextCanRedo = textView?.undoManager?.canRedo ?? false
-
-        if canUndo != nextCanUndo {
-            canUndo = nextCanUndo
-        }
-        if canRedo != nextCanRedo {
-            canRedo = nextCanRedo
-        }
     }
 }
 
@@ -189,6 +161,8 @@ struct SearchableJSONTextView: NSViewRepresentable {
     let searchRequest: JSONTextSearchRequest?
     @Binding var searchResult: JSONTextSearchResult?
     let editingState: JSONTextEditingState?
+    /// 字体和行距由 JSONSyntaxHighlighter 统一打到 textStorage 上，这里只负责把值传下去
+    var fontSize: CGFloat = JSONSyntaxTheme.defaultFontSize
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -200,7 +174,7 @@ struct SearchableJSONTextView: NSViewRepresentable {
 
         let textView = NSTextView(frame: .zero)
         textView.delegate = context.coordinator
-        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.font = JSONSyntaxTheme.monoFont(size: fontSize)
         textView.textColor = NSColor.labelColor
         textView.backgroundColor = .clear
         textView.drawsBackground = false
@@ -209,7 +183,7 @@ struct SearchableJSONTextView: NSViewRepresentable {
         textView.allowsUndo = isEditable
         textView.isRichText = false
         textView.importsGraphics = false
-        textView.textContainerInset = NSSize(width: 4, height: 4)
+        textView.textContainerInset = NSSize(width: 8, height: 8)
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
@@ -220,8 +194,17 @@ struct SearchableJSONTextView: NSViewRepresentable {
         textView.string = text
 
         scrollView.documentView = textView
+
+        let ruler = JSONLineNumberRuler(textView: textView, scrollView: scrollView)
+        scrollView.verticalRulerView = ruler
+        scrollView.hasVerticalRuler = true
+        scrollView.rulersVisible = true
+
         context.coordinator.textView = textView
         context.coordinator.editingState = editingState
+        context.coordinator.ruler = ruler
+        context.coordinator.highlighter.fontSize = fontSize
+        context.coordinator.highlighter.attach(textView)
         editingState?.attach(textView)
         return scrollView
     }
@@ -229,13 +212,17 @@ struct SearchableJSONTextView: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         context.coordinator.editingState = editingState
+        context.coordinator.highlighter.attach(textView)
+        context.coordinator.highlighter.fontSize = fontSize
         editingState?.attach(textView)
 
         if textView.string != text {
             let selectedRange = textView.selectedRange()
             textView.string = text
             textView.setSelectedRange(NSRange(location: min(selectedRange.location, (text as NSString).length), length: 0))
-            editingState?.scheduleUndoAvailabilityUpdate()
+            // 整段换内容不走 textDidChange，这里补一次着色和行号
+            context.coordinator.highlighter.highlightNow()
+            context.coordinator.ruler?.refresh()
         }
 
         textView.isEditable = isEditable
@@ -257,6 +244,8 @@ struct SearchableJSONTextView: NSViewRepresentable {
         @Binding var text: String
         weak var textView: NSTextView?
         weak var editingState: JSONTextEditingState?
+        weak var ruler: JSONLineNumberRuler?
+        let highlighter = JSONSyntaxHighlighter()
         var lastSearchRequestID: UUID?
 
         init(text: Binding<String>) {
@@ -266,7 +255,13 @@ struct SearchableJSONTextView: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             text = textView.string
-            editingState?.scheduleUndoAvailabilityUpdate()
+            highlighter.schedule()
+            ruler?.refresh()
+        }
+
+        /// 只为了让行号槽把当前行标出来
+        func textViewDidChangeSelection(_ notification: Notification) {
+            ruler?.needsDisplay = true
         }
 
         func search(query: String) -> JSONTextSearchResult {

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-DeliveryBar is a macOS 14+ menu bar app built with Swift 5, SwiftUI, AppKit, and SwiftData. Main source lives in `DeliveryBar/`:
+DeliveryBar is a macOS 26+ menu bar app built with Swift 5, SwiftUI, AppKit, and SwiftData. Main source lives in `DeliveryBar/`:
 
 - `DeliveryBarApp.swift` starts the accessory app, SwiftData container, status item, panels, and hotkeys.
 - `Models/` contains SwiftData models and enums such as `Requirement`, `TemporaryTask`, `QuickEntry`, and `JSONFormatHistory`.
@@ -17,7 +17,7 @@ DeliveryBar is a macOS 14+ menu bar app built with Swift 5, SwiftUI, AppKit, and
 - `open DeliveryBar.xcodeproj` opens the app in Xcode; run with `Cmd+R`.
 - `xcodebuild -project DeliveryBar.xcodeproj -scheme DeliveryBar -configuration Debug build` builds a local debug app.
 - `xcodebuild -project DeliveryBar.xcodeproj -scheme DeliveryBar -configuration Release -destination "generic/platform=macOS" build` verifies the release build.
-- `./scripts/package_dmg.sh 1.0.2` creates `dist/DeliveryBar-1.0.2.dmg`.
+- `./scripts/package_dmg.sh 2.0.0` creates `dist/DeliveryBar-2.0.0.dmg`.
 - `swift scripts/generate_app_icon.swift` regenerates app icon PNGs in `DeliveryBar/Assets.xcassets/AppIcon.appiconset`.
 
 ## Coding Style & Naming Conventions

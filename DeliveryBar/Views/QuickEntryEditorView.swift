@@ -23,7 +23,6 @@ struct QuickEntryEditorView: View {
     @State private var tag: String
     @State private var validationMessage: String?
     @State private var isConfirmingDelete = false
-    @State private var isShowingTagSuggestions = false
 
     init(
         entry: QuickEntry?,
@@ -52,8 +51,8 @@ struct QuickEntryEditorView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    QuickEditorSection("基础信息") {
-                        QuickEditorTextField(
+                    EditorSection("基础信息") {
+                        EditorTextField(
                             title: "Key",
                             placeholder: "简短别名，如 deploy-prod",
                             text: $key,
@@ -63,7 +62,7 @@ struct QuickEntryEditorView: View {
 
                         TypeSelector(selection: $type)
 
-                        QuickEditorTextField(
+                        EditorTextField(
                             title: type == .link ? "URL" : "内容",
                             placeholder: type == .link ? "https://..." : "脚本或文本内容",
                             text: $value,
@@ -74,8 +73,8 @@ struct QuickEntryEditorView: View {
                         )
                     }
 
-                    QuickEditorSection("备注与分类") {
-                        QuickEditorTextField(
+                    EditorSection("备注与分类") {
+                        EditorTextField(
                             title: "备注",
                             placeholder: "可选",
                             text: $note,
@@ -85,26 +84,29 @@ struct QuickEntryEditorView: View {
                             lineLimit: 2...4
                         )
 
-                        TagField(
+                        SuggestionTextField(
+                            title: "标签",
+                            placeholder: "可选分类标签",
                             text: $tag,
                             suggestions: existingTags,
-                            isShowingSuggestions: $isShowingTagSuggestions
+                            focusedField: $focusedField,
+                            field: .tag
                         )
                     }
 
                     if let validationMessage {
                         Text(validationMessage)
-                            .font(.caption)
+                            .font(DeliveryBarTheme.Typography.caption)
                             .foregroundStyle(DeliveryBarTheme.danger)
                             .padding(.horizontal, 4)
                     }
 
                     if entry != nil {
-                        QuickEditorSection("危险操作") {
+                        EditorSection("危险操作") {
                             if isConfirmingDelete {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("确认删除这个快捷录？")
-                                        .font(.subheadline)
+                                        .font(DeliveryBarTheme.Typography.caption)
                                         .foregroundStyle(DeliveryBarTheme.danger)
 
                                     HStack {
@@ -152,7 +154,7 @@ struct QuickEntryEditorView: View {
             .tint(DeliveryBarTheme.accent)
 
             Text(entry == nil ? "新增快捷录" : "编辑快捷录")
-                .font(.headline)
+                .font(DeliveryBarTheme.Typography.windowTitle)
                 .foregroundStyle(DeliveryBarTheme.ink)
 
             Spacer()
@@ -162,9 +164,11 @@ struct QuickEntryEditorView: View {
 
     private var footer: some View {
         HStack {
+            // cancelAction 让 Esc 先被编辑页消费（回列表），而不是直接收掉整个面板
             Button("取消") {
                 onCancel()
             }
+            .keyboardShortcut(.cancelAction)
 
             Spacer()
 
@@ -223,24 +227,16 @@ struct QuickEntryEditorView: View {
             modelContext.insert(newEntry)
         }
 
-        saveContext()
+        modelContext.saveChanges()
         onComplete()
     }
 
     private func delete() {
         if let entry {
             modelContext.delete(entry)
-            saveContext()
+            modelContext.saveChanges()
         }
         onComplete()
-    }
-
-    private func saveContext() {
-        do {
-            try modelContext.save()
-        } catch {
-            assertionFailure("Failed to save model context: \(error)")
-        }
     }
 }
 
@@ -253,72 +249,6 @@ private enum QuickEditorField: Hashable {
     case tag
 }
 
-// MARK: - Editor Section
-
-private struct QuickEditorSection<Content: View>: View {
-    let title: String
-    let content: Content
-
-    init(_ title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            VStack(alignment: .leading, spacing: 10) {
-                content
-            }
-            .deliveryCard(padding: 10)
-        }
-    }
-}
-
-// MARK: - Editor Field
-
-private struct QuickEditorTextField: View {
-    let title: String
-    let placeholder: String
-    @Binding var text: String
-    let focusedField: FocusState<QuickEditorField?>.Binding
-    let field: QuickEditorField
-    var axis: Axis = .horizontal
-    var lineLimit: ClosedRange<Int>? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            if let lineLimit {
-                TextField(placeholder, text: $text, axis: axis)
-                    .focused(focusedField, equals: field)
-                    .lineLimit(lineLimit)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusedField.wrappedValue = field
-                    }
-            } else {
-                TextField(placeholder, text: $text, axis: axis)
-                    .focused(focusedField, equals: field)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusedField.wrappedValue = field
-                    }
-            }
-        }
-    }
-}
-
 // MARK: - Type Selector
 
 private struct TypeSelector: View {
@@ -327,7 +257,7 @@ private struct TypeSelector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("类型")
-                .font(.caption)
+                .font(DeliveryBarTheme.Typography.caption)
                 .foregroundStyle(DeliveryBarTheme.softText)
 
             HStack(spacing: 8) {
@@ -341,80 +271,14 @@ private struct TypeSelector: View {
                             Text(type.title)
                                 .lineLimit(1)
                         }
-                        .font(.caption)
-                        .selectablePill(isSelected: selection == type, tint: type.tintColor, verticalPadding: 6)
+                        .font(DeliveryBarTheme.Typography.caption)
+                        .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: selection == type))
+                        .selectablePill(isSelected: selection == type, verticalPadding: 6)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(type.tintColor)
                 }
             }
         }
         .padding(.vertical, 4)
-    }
-}
-
-// MARK: - Tag Field
-
-private struct TagField: View {
-    @Binding var text: String
-    let suggestions: [String]
-    @Binding var isShowingSuggestions: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("标签")
-                .font(.caption)
-                .foregroundStyle(DeliveryBarTheme.softText)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    TextField("可选分类标签", text: $text)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: .infinity)
-
-                    if !suggestions.isEmpty {
-                        Button {
-                            withAnimation(.snappy(duration: 0.16)) {
-                                isShowingSuggestions.toggle()
-                            }
-                        } label: {
-                            Image(systemName: isShowingSuggestions ? "chevron.up.circle" : "chevron.down.circle")
-                                .font(.system(size: 15))
-                        }
-                        .buttonStyle(.borderless)
-                        .frame(width: 28)
-                    }
-                }
-
-                if isShowingSuggestions {
-                    tagChips
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var tagChips: some View {
-        if suggestions.isEmpty {
-            Text("暂无标签")
-                .font(.caption2)
-                .foregroundStyle(DeliveryBarTheme.softText)
-        } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 58), spacing: 6)], alignment: .leading, spacing: 6) {
-                ForEach(suggestions, id: \.self) { suggestion in
-                    Button(suggestion) {
-                        text = suggestion
-                        withAnimation(.snappy(duration: 0.16)) {
-                            isShowingSuggestions = false
-                        }
-                    }
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .buttonStyle(.bordered)
-                    .tint(DeliveryBarTheme.accent)
-                    .controlSize(.small)
-                }
-            }
-        }
     }
 }

@@ -110,7 +110,7 @@ struct QuickEntryListView: View {
                 Text("\(count)")
                     .foregroundStyle(isSelected ? DeliveryBarTheme.inkSoft : DeliveryBarTheme.softText)
             }
-            .font(.caption)
+            .font(DeliveryBarTheme.Typography.caption)
             .foregroundStyle(DeliveryBarTheme.pillForeground(isSelected: isSelected))
             .selectablePill(isSelected: isSelected, verticalPadding: 5)
         }
@@ -136,7 +136,7 @@ struct QuickEntryListView: View {
                             onEdit: { onEdit(entry) },
                             onDelete: {
                                 modelContext.delete(entry)
-                                saveContext()
+                                modelContext.saveChanges()
                             }
                         )
                     }
@@ -156,26 +156,16 @@ struct QuickEntryListView: View {
                 NSWorkspace.shared.open(url)
             }
         case .script, .snippet:
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(entry.value, forType: .string)
+            Clipboard.copy(entry.value)
         }
         entry.markUsed()
         copiedKey = entry.key
-        saveContext()
+        modelContext.saveChanges()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             if copiedKey == entry.key {
                 copiedKey = nil
             }
-        }
-    }
-
-    private func saveContext() {
-        do {
-            try modelContext.save()
-        } catch {
-            assertionFailure("Failed to save model context: \(error)")
         }
     }
 }
@@ -196,65 +186,65 @@ private struct QuickEntryRow: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: entry.type.systemImage)
                     .font(.system(size: 13))
-                    .foregroundStyle(entry.type.tintColor)
+                    .foregroundStyle(DeliveryBarTheme.softText)
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(entry.key)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(DeliveryBarTheme.Typography.captionStrong)
                             .foregroundStyle(DeliveryBarTheme.ink)
                             .lineLimit(1)
 
                         if !entry.tag.isEmpty {
                             Text(entry.tag)
-                                .font(.caption2)
-                                .foregroundStyle(DeliveryBarTheme.ink)
+                                .font(DeliveryBarTheme.Typography.caption)
+                                .foregroundStyle(DeliveryBarTheme.softText)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(DeliveryBarTheme.accentWash.opacity(0.42), in: Capsule())
+                                .background(DeliveryBarTheme.quietFill, in: Capsule())
                                 .overlay {
                                     Capsule()
-                                        .stroke(DeliveryBarTheme.accent.opacity(0.24))
+                                        .stroke(DeliveryBarTheme.cardStroke)
                                 }
                         }
                     }
 
                     Text(entry.value)
-                        .font(.caption)
+                        .font(DeliveryBarTheme.Typography.caption)
                         .foregroundStyle(DeliveryBarTheme.softText)
                         .lineLimit(1)
 
                     if !entry.note.isEmpty {
                         Text(entry.note)
-                            .font(.caption2)
+                            .font(DeliveryBarTheme.Typography.caption)
                             .foregroundStyle(DeliveryBarTheme.softText.opacity(0.78))
                             .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Button {
                         onAction()
                     } label: {
                         Label(isCopied ? "已复制" : entry.type.actionTitle, systemImage: isCopied ? "checkmark" : entry.type.actionImage)
-                            .font(.caption2)
+                            .font(DeliveryBarTheme.Typography.caption)
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(isCopied ? DeliveryBarTheme.success : DeliveryBarTheme.accent)
 
                     HStack(spacing: 4) {
                         Button("编辑", action: onEdit)
-                            .font(.caption2)
+                            .font(DeliveryBarTheme.Typography.caption)
 
                         Button("删除", role: .destructive) {
                             withAnimation(.snappy(duration: 0.16)) {
                                 isConfirmingDelete.toggle()
                             }
                         }
-                        .font(.caption2)
+                        .font(DeliveryBarTheme.Typography.caption)
                     }
                     .buttonStyle(.borderless)
                 }
@@ -262,48 +252,25 @@ private struct QuickEntryRow: View {
             }
 
             if isConfirmingDelete {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(DeliveryBarTheme.danger)
-
-                    Text("确认删除？")
-                        .font(.caption)
-                        .foregroundStyle(DeliveryBarTheme.softText)
-
-                    Spacer()
-
-                    Button("取消") {
-                        withAnimation(.snappy(duration: 0.16)) {
-                            isConfirmingDelete = false
-                        }
+                DeleteConfirmationStrip(leadingInset: 28) {
+                    onDelete()
+                } onCancel: {
+                    withAnimation(.snappy(duration: 0.16)) {
+                        isConfirmingDelete = false
                     }
-                    .font(.caption2)
-
-                    Button("删除", role: .destructive) {
-                        onDelete()
-                    }
-                    .font(.caption2)
                 }
-                .buttonStyle(.borderless)
-                .padding(.leading, 28)
             }
         }
-        .deliveryCard(padding: 8, stroke: entry.type.tintColor.opacity(0.20))
+        .deliveryCard(padding: 8)
         .hoverHighlight(cornerRadius: DeliveryBarTheme.Radius.card)
-    }
-}
+        .contextMenu {
+            Button("复制内容") { Clipboard.copy(entry.value) }
+            Button("复制 Key") { Clipboard.copy(entry.key) }
 
-// MARK: - QuickEntryType tint
-
-extension QuickEntryType {
-    var tintColor: Color {
-        switch self {
-        case .link:
-            Color(nsColor: .systemBlue)
-        case .script:
-            Color(nsColor: .systemPurple)
-        case .snippet:
-            DeliveryBarTheme.accent
+            if entry.type == .link, let url = URL(string: entry.value) {
+                Divider()
+                Button("打开链接") { NSWorkspace.shared.open(url) }
+            }
         }
     }
 }

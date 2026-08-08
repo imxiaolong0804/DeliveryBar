@@ -14,10 +14,10 @@ struct SettingsView: View {
     }
 
     @AppStorage("remindersEnabled") private var remindersEnabled = true
-    @AppStorage("mainHotKeyRegistered") private var mainHotKeyRegistered = false
     @AppStorage("jsonHotKeyRegistered") private var jsonHotKeyRegistered = false
-    @AppStorage("mainHotKeyStatusText") private var mainHotKeyStatusText = "⌘⇧D 未注册"
+    @AppStorage("memoHotKeyRegistered") private var memoHotKeyRegistered = false
     @AppStorage("jsonHotKeyStatusText") private var jsonHotKeyStatusText = "⌘⇧J 未注册"
+    @AppStorage("memoHotKeyStatusText") private var memoHotKeyStatusText = "⌘⇧N 未注册"
 
     let showsNavigation: Bool
     let onDone: () -> Void
@@ -63,7 +63,7 @@ struct SettingsView: View {
             .buttonStyle(.borderless)
 
             Text("设置")
-                .font(.headline)
+                .font(DeliveryBarTheme.Typography.windowTitle)
                 .foregroundStyle(DeliveryBarTheme.ink)
 
             Spacer()
@@ -86,14 +86,20 @@ struct SettingsView: View {
             }
 
             SettingSection(title: "快捷键", systemImage: "keyboard") {
-                SettingRow(title: "主面板", detail: "全局显示或隐藏 DeliveryBar") {
-                    hotKeyStatus(text: mainHotKeyStatusText, isRegistered: mainHotKeyRegistered)
+                SettingRow(title: "新建备忘", detail: "随手记一条，直接进编辑") {
+                    hotKeyStatus(text: memoHotKeyStatusText, isRegistered: memoHotKeyRegistered)
                 }
 
                 SettingDivider()
 
                 SettingRow(title: "JSON 格式化", detail: "打开独立 JSON 工具窗口") {
                     hotKeyStatus(text: jsonHotKeyStatusText, isRegistered: jsonHotKeyRegistered)
+                }
+
+                SettingDivider()
+
+                SettingRow(title: "主面板", detail: "点菜单栏图标打开，不占全局快捷键") {
+                    SettingValuePill("菜单栏图标", tint: DeliveryBarTheme.muted)
                 }
             }
 
@@ -148,7 +154,7 @@ private struct SettingSection<Content: View>: View {
                     .frame(width: 16, height: 16)
 
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(DeliveryBarTheme.Typography.captionStrong)
                     .foregroundStyle(DeliveryBarTheme.ink)
 
                 Spacer()
@@ -175,12 +181,12 @@ private struct SettingRow<Trailing: View>: View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .font(DeliveryBarTheme.Typography.captionStrong)
                     .foregroundStyle(DeliveryBarTheme.ink)
                     .lineLimit(1)
 
                 Text(detail)
-                    .font(.caption2)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.softText)
                     .lineLimit(1)
             }
@@ -199,12 +205,12 @@ private struct ReminderThresholdRow: View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("提醒阈值")
-                    .font(.caption.weight(.semibold))
+                    .font(DeliveryBarTheme.Typography.captionStrong)
                     .foregroundStyle(DeliveryBarTheme.ink)
                     .lineLimit(1)
 
                 Text("不同流程阶段的停留时间")
-                    .font(.caption2)
+                    .font(DeliveryBarTheme.Typography.caption)
                     .foregroundStyle(DeliveryBarTheme.softText)
                     .lineLimit(1)
             }
@@ -234,7 +240,7 @@ private struct ThresholdPill: View {
             Text(value)
                 .foregroundStyle(DeliveryBarTheme.accent)
         }
-        .font(.caption2.weight(.semibold))
+        .font(DeliveryBarTheme.Typography.captionStrong)
         .lineLimit(1)
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
@@ -265,7 +271,7 @@ private struct SettingValuePill: View {
 
     var body: some View {
         Text(text)
-            .font(.caption2.weight(.semibold))
+            .font(DeliveryBarTheme.Typography.captionStrong)
             .foregroundStyle(tint)
             .lineLimit(1)
             .padding(.horizontal, 8)
@@ -291,7 +297,7 @@ private struct SettingStatusPill: View {
         } icon: {
             Image(systemName: systemImage)
         }
-        .font(.caption2.weight(.semibold))
+        .font(DeliveryBarTheme.Typography.captionStrong)
         .foregroundStyle(tint)
         .labelStyle(.titleAndIcon)
         .padding(.horizontal, 8)
